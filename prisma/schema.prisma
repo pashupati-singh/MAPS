@@ -1,0 +1,41 @@
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum CompanySize {
+  STARTUP
+  SME
+  ENTERPRISE
+}
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Company {
+  id             Int            @id @default(autoincrement())
+  name           String
+  legalName      String?
+  size           CompanySize?
+  website        String?
+  logoUrl        String?
+  status         CompanyStatus  @default(ACTIVE)
+  email          String         @unique
+  phone          String         @unique
+  address        Json?
+  contacts       Json?
+  employees      Int
+  gstNumber      String?        @unique
+  registrationNo String?        @unique  
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
