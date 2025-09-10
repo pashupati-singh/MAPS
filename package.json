@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/index.ts",
     "build": "tsc && tsc-alias && tsc-esm-fix dist",
-    "start": "node dist/index.js", 
+    "start": "node dist/index.js",
     "postinstall": "prisma generate"
   },
   "keywords": [],
@@ -19,6 +19,7 @@
     "@prisma/client": "^6.15.0",
     "apollo-server": "^3.13.0",
     "argon2": "^0.44.0",
+    "axios": "^1.11.0",
     "dotenv": "^17.2.2",
     "graphql": "^16.11.0",
     "jsonwebtoken": "^9.0.2"

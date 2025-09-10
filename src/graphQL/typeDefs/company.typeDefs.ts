@@ -15,21 +15,20 @@ export const CompanyTypeDefs = gql`
   }
 
   type Address {
-    street: String
-    area: String
+    address : String
     city: String
     state: String
-    postalCode: String
+    pinCode: String
     country: String
     landmark: String
+    
   }
 
   input AddressInput {
-    street: String
-    area: String
+    address : String
     city: String
     state: String
-    postalCode: String
+    pinCode: String
     country: String
     landmark: String
   }
@@ -61,6 +60,8 @@ export const CompanyTypeDefs = gql`
     email: String
     phone: String
     employees: Int
+    isEmailVerified: Boolean
+    isPhoneVerified: Boolean
     createdAt: String
     updatedAt: String
   }
@@ -87,15 +88,21 @@ export const CompanyTypeDefs = gql`
   }
 
   type CompanyResponse {
-  code: Int!
-  success: Boolean!
-  message: String
-  data: Company
+    code: Int!
+    success: Boolean!
+    message: String
+    data: Company
+  }
+
+  enum VerificationType {
+  EMAIL
+  PHONE
 }
 
-
-  type Mutation {
-    addCompany(data: CompanyInput!): CompanyResponse!
-  }
+type Mutation {
+  addCompany(data: CompanyInput!): CompanyResponse!
+  resendVerification(type: VerificationType!, value: String!): CompanyResponse!
+  verify(type: VerificationType!, value: String!, otpOrToken: String!): CompanyResponse!
+}
 
 `;

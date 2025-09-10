@@ -20,22 +20,210 @@ enum CompanyStatus {
   SUSPENDED
 }
 
-model Company {
-  id             Int            @id @default(autoincrement())
-  name           String
-  legalName      String?
-  size           CompanySize?
-  website        String?
-  logoUrl        String?
-  status         CompanyStatus  @default(ACTIVE)
-  email          String         @unique
-  phone          String         @unique
-  address        Json?
-  contacts       Json?
-  employees      Int
-  gstNumber      String?        @unique
-  registrationNo String?        @unique  
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+enum SubscriptionType {
+  TRIAL
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
 }
 
+enum UserRole {
+  MR
+  ABM
+  ZM
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  SUSPENDED
+}
+
+model Company {
+  id                        Int            @id @default(autoincrement())
+  name                      String
+  legalName                 String?
+  size                      CompanySize?
+  website                   String?
+  logoUrl                   String?
+  status                    CompanyStatus  @default(ACTIVE)
+  email                     String         @unique
+  phone                     String         @unique
+  address                   Json?
+  contacts                  Json?
+  employees                 Int
+  gstNumber                 String?        @unique
+  registrationNo            String?        @unique  
+  isEmailVerified           Boolean        @default(false)
+  isPhoneVerified           Boolean        @default(false)
+  emailVerificationToken    String? 
+  emailVerificationExpiry   DateTime?    
+  phoneOtp                  String?        
+  otpExpiry                 DateTime?
+  subscriptionType          SubscriptionType?
+  subscriptionStart         DateTime?
+  isSubscribe               Boolean?       @default(false)
+  subscriptionEnd           DateTime?     
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+
+  purchaseHistory           PurchaseHistory[]
+  user                      User[]
+  product                   Product[]
+  doctorCompany             DoctorCompany[]
+  ChemistCompany            ChemistCompany[]
+  
+}
+
+model PurchaseHistory {
+  id               Int              @id @default(autoincrement())
+  companyId        Int
+  company          Company          @relation(fields: [companyId], references: [id])
+  subscriptionType SubscriptionType
+  purchaseDate     DateTime         @default(now())
+  expiryDate       DateTime
+  amountPaid       Float?           
+  paymentReference String?       
+}
+
+model User {
+  id                        Int       @id @default(autoincrement())
+  companyId                 Int
+  company                   Company   @relation(fields: [companyId], references: [id])
+  email                     String    @unique
+  phone                     String    @unique
+  password                  String
+  role                      UserRole
+  status                    UserStatus @default(ACTIVE)
+
+  phoneVerificationCode     String?
+  phoneVerificationExpiry   DateTime?
+  emailVerificationToken    String?
+  emailVerificationExpiry   DateTime?
+
+  mpin                      String?
+
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+}
+
+model Address {
+  id        Int      @id @default(autoincrement())
+  address   String
+  city      String
+  state     String
+  pinCode   String
+  country   String
+  latitude  Float?
+  longitude Float?
+  landmark  String?
+
+  doctors   Doctor[]
+  chemists  Chemist[]
+}
+
+model Doctor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  titles    Json?    
+  email     String?  @unique
+  phone     String?  @unique
+  status    String   @default("ACTIVE")
+
+  addressId Int?
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  companies DoctorCompany[]
+  chemists  DoctorChemist[]
+  products  DoctorProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Chemist {
+  id        Int      @id @default(autoincrement())
+  name      String
+  titles    Json?    
+  email     String?  @unique
+  phone     String?  @unique
+  status    String   @default("ACTIVE")
+
+  addressId Int?
+  address   Address? @relation(fields: [addressId], references: [id])
+
+  companies ChemistCompany[]
+  doctors   DoctorChemist[]
+  products  ChemistProduct[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id           Int      @id @default(autoincrement())
+  name         String
+  type         String      // e.g., "Tablet", "Syrup"
+  salt         String?
+  details      Json?       // flexible key-value { "dosage": "500mg", "color": "white" }
+
+  companyId    Int
+  company      Company     @relation(fields: [companyId], references: [id])
+
+  doctors      DoctorProduct[]
+  chemists     ChemistProduct[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model DoctorCompany {
+  id        Int     @id @default(autoincrement())
+  doctorId  Int
+  companyId Int
+
+  doctor    Doctor  @relation(fields: [doctorId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+}
+
+model ChemistCompany {
+  id        Int     @id @default(autoincrement())
+  chemistId Int
+  companyId Int
+
+  chemist   Chemist @relation(fields: [chemistId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+}
+
+model DoctorChemist {
+  id        Int     @id @default(autoincrement())
+  doctorId  Int
+  chemistId Int
+
+  doctor    Doctor  @relation(fields: [doctorId], references: [id])
+  chemist   Chemist @relation(fields: [chemistId], references: [id])
+}
+
+model DoctorProduct {
+  id        Int      @id @default(autoincrement())
+  doctorId  Int
+  productId Int
+
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+
+  assignedAt DateTime @default(now())
+}
+
+model ChemistProduct {
+  id        Int      @id @default(autoincrement())
+  chemistId Int
+  productId Int
+
+  chemist   Chemist  @relation(fields: [chemistId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+
+  assignedAt DateTime @default(now())
+}
