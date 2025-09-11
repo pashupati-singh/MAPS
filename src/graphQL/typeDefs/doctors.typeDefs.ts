@@ -37,15 +37,7 @@ export const DoctorTypeDefs = gql`
     landmark: String
   }
 
-  input CreateDoctorInput {
-    name: String!
-    titles: [String]
-    email: String
-    phone: String
-    status: DoctorStatus
-    address: addressInput
-  }
-
+  
   input UpdateDoctorInput {
     id: ID!
     name: String
@@ -55,6 +47,17 @@ export const DoctorTypeDefs = gql`
     status: DoctorStatus
     address: addressInput
   }
+
+  input CreateDoctorInput {
+    name: String!
+    titles: [String]
+    email: String
+    phone: String
+    companyId: Int!
+    status: DoctorStatus
+    address: addressInput
+  }
+
 
   type DoctorResponse {
     code: Int!
@@ -68,9 +71,35 @@ export const DoctorTypeDefs = gql`
     doctor(id: ID!): Doctor
   }
 
+input AssignDoctorToCompanyInput {
+  doctorId: Int!
+  companyId: Int!
+}
+
+type DoctorCompanyResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  doctorCompany: DoctorCompany
+}
+
+input UnassignDoctorFromCompanyInput {
+  doctorId: Int!
+  companyId: Int!
+}
+
+type UnassignDoctorFromCompanyResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+}
+
+
   type Mutation {
     createDoctor(input: CreateDoctorInput!): DoctorResponse
     updateDoctor(input: UpdateDoctorInput!): DoctorResponse
+    assignDoctorToCompany(input: AssignDoctorToCompanyInput!): DoctorCompanyResponse
+    unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse
     deleteDoctor(id: ID!): DoctorResponse
   }
 `;

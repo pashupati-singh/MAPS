@@ -21,52 +21,115 @@ export const DoctorResolver = {
 
   Mutation: {
     createDoctor: async (_: any, { input }: any) => {
+  try {
+    let addressRecord = null;
+
+    // Handle address creation if provided
+    if (input.address) {
+      const fullAddress = [input.address.address, input.address.city, input.address.state, input.address.pinCode,
+        input.address.country, input.address.landmark].filter(Boolean).join(", ");
+      
+      let latitude = null;
+      let longitude = null;
+
       try {
-        let addressRecord = null;
-
-        if (input.address) {
-          const fullAddress = [input.address.address,input.address.city,input.address.state,input.address.pinCode,
-            input.address.country,input.address.landmark,].filter(Boolean).join(", ");
-          let latitude: number | null = null;
-          let longitude: number | null = null;
-
-          try {
-            const coords = await getLatLongFromAddress(fullAddress);
-            latitude = coords.latitude;
-            longitude = coords.longitude;
-          } catch (error: any) {
-            return createResponse(400, false, `Failed to fetch coordinates: ${error.message}`);
-          }
-          addressRecord = await prisma.address.create({
-            data: {
-              address: input.address.address,
-              city: input.address.city,
-              state: input.address.state,
-              pinCode: input.address.pinCode,
-              country: input.address.country,
-              landmark: input.address.landmark,
-              latitude,
-              longitude,
-            },
-          });
-        }
-        const doctor = await prisma.doctor.create({
-          data: {
-            name: input.name,
-            titles: input.titles ?? [],
-            email: input.email,
-            phone: input.phone,
-            status: input.status || "ACTIVE",
-            addressId: addressRecord ? addressRecord.id : null,
-          },
-          include: { address: true },
-        });
-
-        return createResponse(201, true, "Doctor created successfully", { doctor });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
+        const coords = await getLatLongFromAddress(fullAddress);
+        latitude = coords.latitude;
+        longitude = coords.longitude;
+      } catch (error:any) {
+        return createResponse(400, false, `Failed to fetch coordinates: ${error.message}`);
       }
-    },
+
+      addressRecord = await prisma.address.create({
+        data: {
+          address: input.address.address,
+          city: input.address.city,
+          state: input.address.state,
+          pinCode: input.address.pinCode,
+          country: input.address.country,
+          landmark: input.address.landmark,
+          latitude,
+          longitude,
+        },
+      });
+    }
+
+    // Create the doctor
+    const doctor = await prisma.doctor.create({
+      data: {
+        name: input.name,
+        titles: input.titles ?? [],
+        email: input.email,
+        phone: input.phone,
+        status: input.status || "ACTIVE",
+        addressId: addressRecord ? addressRecord.id : null,
+      },
+    });
+    await prisma.doctorCompany.create({
+      data: {
+        doctorId: doctor.id,
+        companyId: input.companyId,
+      },
+    });
+
+    return createResponse(201, true, "Doctor created successfully", { doctor });
+  } catch (err : any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
+assignDoctorToCompany: async (_: any, { input }: any) => {
+  try {
+    const { doctorId, companyId } = input;
+    const existingLink = await prisma.doctorCompany.findFirst({
+      where: {
+        doctorId,
+        companyId,
+      },
+    });
+
+    if (existingLink) {
+      return createResponse(400, false, "Doctor is already assigned to this company");
+    }
+    const doctorCompany = await prisma.doctorCompany.create({
+      data: {
+        doctorId,
+        companyId,
+      },
+    });
+
+    return createResponse(201, true, "Doctor assigned to company successfully", { doctorCompany });
+  } catch (err : any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
+unassignDoctorFromCompany: async (_: any, { input }: any) => {
+  try {
+    const { doctorId, companyId } = input;
+    const existingLink = await prisma.doctorCompany.findFirst({
+      where: {
+        doctorId,
+        companyId,
+      },
+    });
+
+    if (!existingLink) {
+      return createResponse(404, false, "Doctor is not assigned to this company");
+    }
+    await prisma.doctorCompany.delete({
+      where: {
+        id: existingLink.id,
+      },
+    });
+
+    return createResponse(200, true, "Doctor unassigned from company successfully");
+  } catch (err:any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
+
 
      updateDoctor: async (_: any, { input }: any) => {
       try {
