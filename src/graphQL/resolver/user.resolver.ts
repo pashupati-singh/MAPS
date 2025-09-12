@@ -223,10 +223,9 @@ export const UserResolver = {
         const now = new Date();
         const { company } = user;
 
-        const isTrialActive = company.onTrail && company.trailExpiry && company.trailExpiry > now;
         const isSubscriptionActive = company.isSubscribe && company.subscriptionEnd && company.subscriptionEnd > now;
 
-        if (!isTrialActive && !isSubscriptionActive) {
+        if (!isSubscriptionActive) {
           return createResponse(403, false, "Your subscription or trial has expired. Please renew to continue.");
         }
         const isPasswordValid = await argon2.verify(user.password, password);
@@ -253,3 +252,9 @@ export const UserResolver = {
     },
   },
 }
+
+
+
+
+
+//  this is the code of my schema and code of typeDEfs and resolver of my user now, now we need to create a callreport in which we get the companyId, doctorId or chemistId, date (currentdate like "2025-09-20T00:00:00:0000Z" according to IST), productIds more then one ids should exist startTime and endTime these are in the string "00:00" and remark. 

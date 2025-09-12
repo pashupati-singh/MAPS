@@ -73,8 +73,8 @@ model Company {
   user                      User[]
   product                   Product[]
   doctorCompany             DoctorCompany[]
-  ChemistCompany            ChemistCompany[]
-  
+  ChemistCompany            ChemistCompany[] 
+  dailyPlan                 DailyPlan[]
 }
 
 model PurchaseHistory {
@@ -107,6 +107,8 @@ model User {
 
   createdAt                 DateTime  @default(now())
   updatedAt                 DateTime  @updatedAt
+  mrDailyPlans              DailyPlan[] @relation("MRDailyPlans")
+  abmDailyPlans             DailyPlan[] @relation("ABMDailyPlans")
 }
 
 model Address {
@@ -141,6 +143,8 @@ model Doctor {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  dailyPlans   DailyPlanDoctor[]
 }
 
 model Chemist {
@@ -160,6 +164,8 @@ model Chemist {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  dailyPlans   DailyPlanChemist[]
 }
 
 model Product {
@@ -226,4 +232,52 @@ model ChemistProduct {
   product   Product  @relation(fields: [productId], references: [id])
 
   assignedAt DateTime @default(now())
+}
+
+model DailyPlan {
+  id                     Int       @id @default(autoincrement())
+  mrId                   Int
+  abmId                  Int?
+  companyId              Int
+  
+  isApproved             Boolean   @default(false)
+  workTogether           Boolean   @default(false)
+  isWorkTogetherConfirmed Boolean  @default(false)
+
+  planDate               DateTime  @unique
+  notes                  String?
+
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  // Relations
+  mr                     User      @relation("MRDailyPlans", fields: [mrId], references: [id])
+  abm                    User?     @relation("ABMDailyPlans", fields: [abmId], references: [id])
+  company                Company   @relation(fields: [companyId], references: [id])
+
+  doctors                DailyPlanDoctor[]
+  chemists               DailyPlanChemist[]
+}
+
+
+model DailyPlanDoctor {
+  id          Int      @id @default(autoincrement())
+  dailyPlanId Int
+  doctorId    Int
+
+  dailyPlan   DailyPlan @relation(fields: [dailyPlanId], references: [id])
+  doctor      Doctor    @relation(fields: [doctorId], references: [id])
+
+  @@unique([dailyPlanId, doctorId]) // Avoid duplicate entries
+}
+
+model DailyPlanChemist {
+  id          Int      @id @default(autoincrement())
+  dailyPlanId Int
+  chemistId   Int
+
+  dailyPlan   DailyPlan @relation(fields: [dailyPlanId], references: [id])
+  chemist     Chemist   @relation(fields: [chemistId], references: [id])
+
+  @@unique([dailyPlanId, chemistId]) // Avoid duplicate entries
 }
