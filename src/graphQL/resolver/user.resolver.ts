@@ -229,7 +229,7 @@ export const UserResolver = {
           return createResponse(403, false, "Your subscription or trial has expired. Please renew to continue.");
         }
         const isPasswordValid = await argon2.verify(user.password, password);
-        if (!isPasswordValid) {
+        if (!isPasswordValid) { 
           return createResponse(401, false, "Invalid password");
         }
         const token = jwt.sign(
@@ -250,6 +250,50 @@ export const UserResolver = {
         return createResponse(500, false, err.message);
       }
     },
+
+    assignMrsToAbm: async (_: any, { data }: any) => {
+  try {
+    const { abmId, mrIds } = data;
+
+    if (!abmId) return createResponse(400, false, "ABM ID is required");
+    if (!mrIds || mrIds.length === 0) {
+      return createResponse(400, false, "At least one MR ID is required");
+    }
+
+    const abm = await prisma.user.findUnique({ where: { id: abmId } });
+    if (!abm) return createResponse(404, false, "ABM not found");
+    if (abm.role !== "ABM") {
+      return createResponse(400, false, "Provided user is not an ABM");
+    }
+
+    const mrs = await prisma.user.findMany({
+      where: { id: { in: mrIds } },
+    });
+
+    if (mrs.length !== mrIds.length) {
+      return createResponse(400, false, "One or more MR IDs are invalid");
+    }
+
+    const notMrUsers = mrs.filter(u => u.role !== "MR");
+    if (notMrUsers.length > 0) {
+      return createResponse(400, false, "One or more users are not MRs");
+    }
+
+    await prisma.user.updateMany({
+      where: { id: { in: mrIds } },
+      data: { abmId },
+    });
+
+    const updatedAbm = await prisma.user.findUnique({
+      where: { id: abmId },
+      include: { mrs: true },
+    });
+
+    return createResponse(200, true, "MRs assigned to ABM successfully", updatedAbm);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
   },
 }
 

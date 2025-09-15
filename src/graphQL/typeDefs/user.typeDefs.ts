@@ -54,6 +54,11 @@ export const UserTypeDefs = gql`
     userId (id: Int!): UserResponse!
   }
 
+  input AssignMrsToAbmInput {
+  abmId: Int!
+  mrIds: [Int!]!
+}
+
   type Mutation {
     createUser(data: CreateUserInput!): UserResponse!
     setMpin(userId: Int!, mpin: String!): UserResponse!
@@ -61,5 +66,6 @@ export const UserTypeDefs = gql`
     resendOtp(userId: Int!, type: String!): UserResponse!
     verifyOtp(userId: Int!, type: String!, otp: String!): UserResponse!
     loginUser(email: String!, password: String!): AuthPayload!
+    assignMrsToAbm(data: AssignMrsToAbmInput!): UserResponse!
   }
 `;

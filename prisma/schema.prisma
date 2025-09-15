@@ -41,6 +41,21 @@ enum UserStatus {
   SUSPENDED
 }
 
+enum ReportType {
+  CALL
+  APPOINTMENT
+  REMINDER
+}
+
+enum ExpenseCategory {
+  TRAVEL
+  FOOD
+  ACCOMMODATION
+  SAMPLE
+  OTHER
+}
+
+
 model Company {
   id                        Int            @id @default(autoincrement())
   name                      String
@@ -75,6 +90,10 @@ model Company {
   doctorCompany             DoctorCompany[]
   ChemistCompany            ChemistCompany[] 
   dailyPlan                 DailyPlan[]
+  target                    Target[]
+  productTarget             ProductTarget[]
+  sale                      Sale[]
+  expense                   Expense[]
 }
 
 model PurchaseHistory {
@@ -109,6 +128,16 @@ model User {
   updatedAt                 DateTime  @updatedAt
   mrDailyPlans              DailyPlan[] @relation("MRDailyPlans")
   abmDailyPlans             DailyPlan[] @relation("ABMDailyPlans")
+  dailyCallReportsAsMr      DailyCallReport[] @relation("MRReports")
+  dailyCallReportsAsAbm     DailyCallReport[] @relation("ABMReports")
+  stocks                    Stock[]
+  abmId                     Int?
+  abm                       User?   @relation("ABM_MRs", fields: [abmId], references: [id])
+  mrs                       User[]  @relation("ABM_MRs")
+  target                    Target[]
+  productTarget             ProductTarget[]
+  sale                      Sale[]
+  expense                   Expense[]
 }
 
 model Address {
@@ -127,24 +156,27 @@ model Address {
 }
 
 model Doctor {
-  id        Int      @id @default(autoincrement())
-  name      String
-  titles    Json?    
-  email     String?  @unique
-  phone     String?  @unique
-  status    String   @default("ACTIVE")
+  id                     Int      @id @default(autoincrement())
+  name                   String
+  titles                 Json?    
+  email                  String?  @unique
+  phone                  String?  @unique
+  status                 String   @default("ACTIVE")
 
-  addressId Int?
-  address   Address? @relation(fields: [addressId], references: [id])
+  addressId              Int?
+  address                Address? @relation(fields: [addressId], references: [id])
 
-  companies DoctorCompany[]
-  chemists  DoctorChemist[]
-  products  DoctorProduct[]
+  companies              DoctorCompany[]
+  chemists               DoctorChemist[]
+  products               DoctorProduct[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
-  dailyPlans   DailyPlanDoctor[]
+  dailyPlans             DailyPlanDoctor[]
+  dailyCallReports       DailyCallReport[]
+  stocks                 Stock[]
+  sale                   Sale[]
 }
 
 model Chemist {
@@ -166,23 +198,29 @@ model Chemist {
   updatedAt DateTime @updatedAt
 
   dailyPlans   DailyPlanChemist[]
+  dailyCallReports DailyCallReport[]
+   stocks          Stock[]
+   sale            Sale[]
 }
 
 model Product {
-  id           Int      @id @default(autoincrement())
-  name         String
-  type         String      // e.g., "Tablet", "Syrup"
-  salt         String?
-  details      Json?       // flexible key-value { "dosage": "500mg", "color": "white" }
+  id                        Int      @id @default(autoincrement())
+  name                      String
+  type                      String      // e.g., "Tablet", "Syrup"
+  salt                      String?
+  details                   Json?       // flexible key-value { "dosage": "500mg", "color": "white" }
 
-  companyId    Int
-  company      Company     @relation(fields: [companyId], references: [id])
+  companyId                 Int
+  company                   Company     @relation(fields: [companyId], references: [id])
 
-  doctors      DoctorProduct[]
-  chemists     ChemistProduct[]
+  doctors                   DoctorProduct[]
+  chemists                  ChemistProduct[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  stocks                    Stock[]
+  productTarget             ProductTarget[]
+  sale                      Sale[]
 }
 
 model DoctorCompany {
@@ -243,22 +281,21 @@ model DailyPlan {
   isApproved             Boolean   @default(false)
   workTogether           Boolean   @default(false)
   isWorkTogetherConfirmed Boolean  @default(false)
-
+  isRejected             Boolean   @default(false)
   planDate               DateTime  @unique
   notes                  String?
 
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  // Relations
   mr                     User      @relation("MRDailyPlans", fields: [mrId], references: [id])
   abm                    User?     @relation("ABMDailyPlans", fields: [abmId], references: [id])
   company                Company   @relation(fields: [companyId], references: [id])
 
   doctors                DailyPlanDoctor[]
   chemists               DailyPlanChemist[]
+  dailyCallReports       DailyCallReport[]
 }
-
 
 model DailyPlanDoctor {
   id          Int      @id @default(autoincrement())
@@ -280,4 +317,129 @@ model DailyPlanChemist {
   chemist     Chemist   @relation(fields: [chemistId], references: [id])
 
   @@unique([dailyPlanId, chemistId]) // Avoid duplicate entries
+}
+
+model DailyCallReport {
+  id              Int        @id @default(autoincrement())
+  dailyPlanId     Int
+  mrId            Int
+  abmId           Int?
+  doctorId        Int?
+  chemistId       Int?
+  typeOfReport    ReportType
+  reportDate      DateTime   // Must equal dailyPlan.planDate
+  reportStartTime String     // "HH:mm"
+  reportEndTime   String     // "HH:mm"
+  duration        Int        // minutes
+  remarks         String?
+  latitude        Float?
+  longitude       Float?
+  products        Json       // e.g. [1,2,3,4]
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  dailyPlan       DailyPlan  @relation(fields: [dailyPlanId], references: [id])
+  mr              User       @relation("MRReports", fields: [mrId], references: [id])
+  abm             User?      @relation("ABMReports", fields: [abmId], references: [id])
+  doctor          Doctor?    @relation(fields: [doctorId], references: [id])
+  chemist         Chemist?   @relation(fields: [chemistId], references: [id])
+}
+
+model Stock {
+  id             Int       @id @default(autoincrement())
+  mrId           Int
+  doctorId       Int?
+  chemistId      Int?
+  productId      Int
+  qty            Int
+  dateOfUpdate   DateTime  @default(now())
+  dateOfReminder DateTime?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  mr             User      @relation(fields: [mrId], references: [id])
+  doctor         Doctor?   @relation(fields: [doctorId], references: [id])
+  chemist        Chemist?  @relation(fields: [chemistId], references: [id])
+  product        Product   @relation(fields: [productId], references: [id])
+}
+
+model Target {             // Sales target (general, not product-specific)
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  userId    Int?          // MR (ABM/Company = sum of MR targets)
+  year      Int
+  month     Int?          // 1–12
+  quarter   Int?          // 1–4
+  halfYear  Int?          // 1 or 2
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company @relation(fields: [companyId], references: [id])
+  user      User?   @relation(fields: [userId], references: [id])
+
+  @@index([companyId, year, month, quarter, halfYear])
+  @@index([userId, year, month, quarter, halfYear])
+}
+
+model ProductTarget {      // Product-specific target
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  userId    Int?          // MR
+  productId Int
+  year      Int
+  month     Int?
+  quarter   Int?
+  halfYear  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company @relation(fields: [companyId], references: [id])
+  user      User?   @relation(fields: [userId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([companyId, productId, year, month, quarter, halfYear])
+  @@index([userId, productId, year, month, quarter, halfYear])
+}
+
+model Sale {
+  id          Int       @id @default(autoincrement())
+  mrId        Int
+  companyId   Int
+  doctorId    Int?
+  chemistId   Int?
+  productId   Int
+  qty         Int
+  price       Float
+  totalAmount Float     // qty * price
+  orderDate   DateTime  @default(now())
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  mr          User      @relation(fields: [mrId], references: [id])
+  company     Company   @relation(fields: [companyId], references: [id])
+  doctor      Doctor?   @relation(fields: [doctorId], references: [id])
+  chemist     Chemist?  @relation(fields: [chemistId], references: [id])
+  product     Product   @relation(fields: [productId], references: [id])
+}
+
+model Expense {
+  id          Int       @id @default(autoincrement())
+  userId      Int       // MR or ABM who logged the expense
+  companyId   Int
+  category    ExpenseCategory
+  description String?
+  amount      Float
+  expenseDate DateTime
+  isApproved  Boolean   @default(false) // for ABM/Admin approval
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id])
+  company     Company   @relation(fields: [companyId], references: [id])
 }

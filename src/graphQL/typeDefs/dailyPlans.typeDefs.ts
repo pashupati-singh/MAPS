@@ -8,6 +8,7 @@ export const DailyPlanTypeDefs = gql`
     companyId: Int!
     isApproved: Boolean!
     workTogether: Boolean!
+    isRejected: Boolean!
     isWorkTogetherConfirmed: Boolean!
     planDate: String!
     notes: String
@@ -30,9 +31,6 @@ export const DailyPlanTypeDefs = gql`
 
   input UpdateDailyPlanInput {
     id: Int!
-    isApproved: Boolean
-    workTogether: Boolean
-    isWorkTogetherConfirmed: Boolean
     notes: String
     doctorIds: [Int!]    # Optional: update list of doctors
     chemistIds: [Int!]   # Optional: update list of chemists
@@ -52,6 +50,13 @@ export const DailyPlanTypeDefs = gql`
     data: [DailyPlan]
   }
 
+  input UpdateByAbmInput {
+  id: Int!
+  isApproved: Boolean
+  isRejected: Boolean
+  isWorkTogetherConfirmed: Boolean
+}
+
   type Query {
     getDailyPlans(companyId: Int!): DailyPlansResponse!
     getDailyPlanById(id: Int!): DailyPlanResponse!
@@ -60,7 +65,7 @@ export const DailyPlanTypeDefs = gql`
   type Mutation {
     createDailyPlan(data: CreateDailyPlanInput!): DailyPlanResponse!
     updateDailyPlan(data: UpdateDailyPlanInput!): DailyPlanResponse!
+    updateDailyPlanByAbm(data: UpdateByAbmInput!): DailyPlanResponse!
     deleteDailyPlan(id: Int!): DailyPlanResponse!
-    approveAndConfirmDailyPlan(id: Int!): DailyPlanResponse!
   }
 `;

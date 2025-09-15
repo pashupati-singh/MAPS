@@ -31,7 +31,6 @@ export const DailyPlanResolver = {
         return createResponse(500, false, err.message);
       }
     },
-
     getDailyPlanById: async (_: any, { id }: { id: number }) => {
       try {
         if (!id) {
@@ -71,49 +70,6 @@ export const DailyPlanResolver = {
         if (!mrId || !companyId || !planDate) {
           return createResponse(400, false, "MR ID, Company ID, and Plan Date are required");
         }
-
-        const mr = await prisma.user.findUnique({ where: { id: mrId } });
-        if (!mr) {
-          return createResponse(404, false, "MR not found");
-        }
-        if (mr.companyId !== companyId) {
-          return createResponse(400, false, "MR must belong to the same company");
-        }
-
-        if (abmId) {
-          const abm = await prisma.user.findUnique({ where: { id: abmId } });
-          if (!abm) {
-            return createResponse(404, false, "ABM not found");
-          }
-          if (abm.companyId !== companyId) {
-            return createResponse(400, false, "ABM must belong to the same company");
-          }
-        }
-        for (const doctorId of doctorIds || []) {
-          const doctor = await prisma.doctor.findUnique({ where: { id: doctorId } });
-          if (!doctor) {
-            return createResponse(404, false, `Doctor with ID ${doctorId} not found`);
-          }
-          const doctorCompany = await prisma.doctorCompany.findFirst({
-            where: { doctorId, companyId },
-          });
-          if (!doctorCompany) {
-            return createResponse(400, false, `Doctor with ID ${doctorId} must belong to the same company`);
-          }
-        }
-        for (const chemistId of chemistIds || []) {
-          const chemist = await prisma.chemist.findUnique({ where: { id: chemistId } });
-          if (!chemist) {
-            return createResponse(404, false, `Chemist with ID ${chemistId} not found`);
-          }
-          const chemistCompany = await prisma.chemistCompany.findFirst({
-            where: { chemistId, companyId },
-          });
-          if (!chemistCompany) {
-            return createResponse(400, false, `Chemist with ID ${chemistId} must belong to the same company`);
-          }
-        }
-
         const newPlan = await prisma.dailyPlan.create({
           data: {
             mrId,
@@ -149,7 +105,7 @@ export const DailyPlanResolver = {
 
     updateDailyPlan: async (_: any, { data }: any) => {
       try {
-        const { id, isApproved, workTogether, isWorkTogetherConfirmed, notes, doctorIds, chemistIds } = data;
+        const { id, notes, doctorIds, chemistIds } = data;
 
         if (!id) {
           return createResponse(400, false, "Plan ID is required");
@@ -165,27 +121,15 @@ export const DailyPlanResolver = {
         }
 
         const updatedData: any = {};
-
-        if (typeof isApproved === "boolean") {
-          updatedData.isApproved = isApproved;
-        }
-        if (typeof workTogether === "boolean") {
-          updatedData.workTogether = workTogether;
-        }
-        if (typeof isWorkTogetherConfirmed === "boolean") {
-          updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
-        }
         if (notes !== undefined) {
           updatedData.notes = notes;
         }
 
-        // Update plan data first
-        const updatedPlan = await prisma.dailyPlan.update({
+       await prisma.dailyPlan.update({
           where: { id },
           data: updatedData,
         });
 
-        // Update doctors if doctorIds is provided
         if (doctorIds) {
           await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: id } });
           await prisma.dailyPlanDoctor.createMany({
@@ -193,8 +137,6 @@ export const DailyPlanResolver = {
             skipDuplicates: true,
           });
         }
-
-        // Update chemists if chemistIds is provided
         if (chemistIds) {
           await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: id } });
           await prisma.dailyPlanChemist.createMany({
@@ -203,7 +145,6 @@ export const DailyPlanResolver = {
           });
         }
 
-        // Fetch updated plan with relations
         const planWithRelations = await prisma.dailyPlan.findUnique({
           where: { id },
           include: {
@@ -224,46 +165,58 @@ export const DailyPlanResolver = {
       }
     },
 
-    deleteDailyPlan: async (_: any, { id }: { id: number }) => {
-      try {
-        if (!id) {
-          return createResponse(400, false, "Plan ID is required");
-        }
-
-        const plan = await prisma.dailyPlan.findUnique({ where: { id } });
-        if (!plan) {
-          return createResponse(404, false, "Daily plan not found");
-        }
-
-        // Delete related entries first to maintain referential integrity
-        await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: id } });
-        await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: id } });
-
-        await prisma.dailyPlan.delete({ where: { id } });
-
-        return createResponse(200, true, "Daily plan deleted successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
-
-    approveAndConfirmDailyPlan: async (_: any, { id }: { id: number }) => {
+    updateDailyPlanByAbm: async (_: any, { data }: any) => {
   try {
+    const { id, isApproved, isRejected, isWorkTogetherConfirmed } = data;
+
     if (!id) {
       return createResponse(400, false, "Plan ID is required");
     }
 
-    const plan = await prisma.dailyPlan.findUnique({ where: { id } });
+    const plan = await prisma.dailyPlan.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        isApproved: true,
+        isRejected: true,
+        workTogether: true,
+        isWorkTogetherConfirmed: true,
+      },
+    });
+
     if (!plan) {
       return createResponse(404, false, "Daily plan not found");
     }
 
+    // 🔒 Validation
+    if (isApproved && isRejected) {
+      return createResponse(400, false, "Plan cannot be both approved and rejected");
+    }
+
+    const updatedData: any = {};
+
+    // ✅ ABM can approve or reject
+    if (isApproved !== undefined) {
+      updatedData.isApproved = isApproved;
+      if (isApproved) updatedData.isRejected = false; // auto reset reject
+    }
+    if (isRejected !== undefined) {
+      updatedData.isRejected = isRejected;
+      if (isRejected) updatedData.isApproved = false; // auto reset approve
+    }
+
+    // ✅ ABM can confirm workTogether ONLY if MR set workTogether = true
+    if (isWorkTogetherConfirmed !== undefined) {
+      if (plan.workTogether) {
+        updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
+      } else {
+        return createResponse(400, false, "WorkTogether not requested by MR");
+      }
+    }
+
     const updatedPlan = await prisma.dailyPlan.update({
       where: { id },
-      data: {
-        isApproved: true,
-        isWorkTogetherConfirmed: true,
-      },
+      data: updatedData,
       include: {
         doctors: true,
         chemists: true,
@@ -276,11 +229,32 @@ export const DailyPlanResolver = {
       chemistIds: updatedPlan.chemists.map((c: any) => c.chemistId),
     };
 
-    return createResponse(200, true, "Daily plan approved and confirmed successfully", result);
+    return createResponse(200, true, "Daily plan updated by ABM successfully", result);
   } catch (err: any) {
     return createResponse(500, false, err.message);
   }
-}
+},
+
+    deleteDailyPlan: async (_: any, { id }: { id: number }) => {
+      try {
+        if (!id) {
+          return createResponse(400, false, "Plan ID is required");
+        }
+
+        const plan = await prisma.dailyPlan.findUnique({ where: { id } });
+        if (!plan) {
+          return createResponse(404, false, "Daily plan not found");
+        }
+        await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: id } });
+        await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: id } });
+
+        await prisma.dailyPlan.delete({ where: { id } });
+
+        return createResponse(200, true, "Daily plan deleted successfully");
+      } catch (err: any) {
+        return createResponse(500, false, err.message);
+      }
+    },
 
   },
 };
