@@ -1,23 +1,25 @@
-import { ApolloServer } from '@apollo/server';
-import { startStandaloneServer } from '@apollo/server/standalone';
-import { PrismaClient } from '@prisma/client';
-import {typeDefs, resolvers} from "./graphQL/schema"
-const prisma = new PrismaClient();
-
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-});
-
+import { ApolloServer } from "@apollo/server";
+import { startStandaloneServer } from "@apollo/server/standalone";
+import { typeDefs, resolvers } from "./graphQL/schema";
+import { createContext, Context } from "./middleware/auth";
 
 const PORT = Number(process.env.PORT) || 4000;
 
 (async () => {
-  const { url } = await startStandaloneServer(server, {
-    listen: { port: PORT },
+  const server = new ApolloServer<Context>({
+    typeDefs,
+    resolvers,
   });
+
+  const { url } = await startStandaloneServer<Context>(server, {
+    listen: { port: PORT },
+    context: createContext,
+  });
+
   console.log(`🚀 Server ready at ${url}`);
 })();
+
+
 
 
 // import { createYoga } from 'graphql-yoga';

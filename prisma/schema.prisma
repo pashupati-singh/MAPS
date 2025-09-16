@@ -58,17 +58,18 @@ enum ExpenseCategory {
 
 model Company {
   id                        Int            @id @default(autoincrement())
-  name                      String
+  name                      String?
   legalName                 String?
   size                      CompanySize?
   website                   String?
   logoUrl                   String?
   status                    CompanyStatus  @default(ACTIVE)
   email                     String         @unique
+  password                  String 
   phone                     String         @unique
   address                   Json?
   contacts                  Json?
-  employees                 Int
+  employees                 Int?
   gstNumber                 String?        @unique
   registrationNo            String?        @unique  
   isEmailVerified           Boolean        @default(false)

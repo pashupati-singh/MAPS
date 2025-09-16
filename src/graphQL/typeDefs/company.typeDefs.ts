@@ -87,6 +87,24 @@ export const CompanyTypeDefs = gql`
     company(id: Int!): Company
   }
 
+ type Company {
+    id: Int
+    email: String!
+    phone: String!
+    status: CompanyStatus!
+    isEmailVerified: Boolean!
+    isPhoneVerified: Boolean!
+    createdAt: String
+    updatedAt: String
+  }
+
+  input RegisterCompanyInput {
+    email: String!
+    phone: String!
+    password: String
+    status: CompanyStatus = ACTIVE
+  }
+
   type CompanyResponse {
     code: Int!
     success: Boolean!
@@ -95,14 +113,16 @@ export const CompanyTypeDefs = gql`
   }
 
   enum VerificationType {
-  EMAIL
-  PHONE
-}
+    EMAIL
+    PHONE
+  }
 
 type Mutation {
+  registerCompany(data: RegisterCompanyInput!): CompanyResponse!
+  verify(type: VerificationType!, value: String!, otpOrToken: String!): CompanyResponse!
+  loginCompany(email: String!, password: String!): CompanyResponse!
   addCompany(data: CompanyInput!): CompanyResponse!
   resendVerification(type: VerificationType!, value: String!): CompanyResponse!
-  verify(type: VerificationType!, value: String!, otpOrToken: String!): CompanyResponse!
 }
 
 `;
