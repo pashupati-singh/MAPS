@@ -98,14 +98,14 @@ model Company {
 }
 
 model PurchaseHistory {
-  id               Int              @id @default(autoincrement())
-  companyId        Int
-  company          Company          @relation(fields: [companyId], references: [id])
-  subscriptionType SubscriptionType
-  purchaseDate     DateTime         @default(now())
-  expiryDate       DateTime
-  amountPaid       Float?           
-  paymentReference String?       
+  id                             Int              @id @default(autoincrement())
+  companyId                      Int
+  company                        Company          @relation(fields: [companyId], references: [id])
+  subscriptionType               SubscriptionType
+  purchaseDate                   DateTime         @default(now())
+  expiryDate                     DateTime
+  amountPaid                     Float?           
+  paymentReference               String?       
 }
 
 model User {
@@ -114,6 +114,8 @@ model User {
   company                   Company   @relation(fields: [companyId], references: [id])
   email                     String    @unique
   phone                     String    @unique
+  isEmailVerified           Boolean   @default(false)
+  isPhoneVerified           Boolean   @default(false)
   password                  String
   role                      UserRole
   status                    UserStatus @default(ACTIVE)

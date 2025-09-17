@@ -31,26 +31,27 @@ export const PurchaseTypeDefs = gql`
     landmark: String
   }
   
-  type Company {
-    id: Int
-    name: String
-    legalName: String
-    size: CompanySize
-    website: String
-    logoUrl: String
-    status: CompanyStatus
-    gstNumber: String
-    registrationNumber: String
-    address: Address
-    contacts: [Contact]
-    email: String
-    phone: String
-    employees: Int
-    isEmailVerified: Boolean
-    isPhoneVerified: Boolean
-    createdAt: String
-    updatedAt: String
-  }
+ type Company {
+  id: Int
+  name: String
+  legalName: String
+  size: CompanySize
+  website: String
+  logoUrl: String
+  status: CompanyStatus
+  gstNumber: String
+  registrationNo: String
+  address: Address
+  contacts: [Contact]
+  email: String
+  phone: String
+  employees: Int
+  isEmailVerified: Boolean
+  isPhoneVerified: Boolean
+  createdAt: String
+  updatedAt: String
+}
+
 
   type PurchaseHistory {
     id: Int!

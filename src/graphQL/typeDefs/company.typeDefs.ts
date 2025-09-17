@@ -54,7 +54,7 @@ export const CompanyTypeDefs = gql`
     logoUrl: String
     status: CompanyStatus
     gstNumber: String
-    registrationNumber: String
+    registrationNo: String
     address: Address
     contacts: [Contact]
     email: String
@@ -74,7 +74,7 @@ export const CompanyTypeDefs = gql`
     logoUrl: String
     status: CompanyStatus
     gstNumber: String
-    registrationNumber: String
+    registrationNo: String
     address: AddressInput
     contacts: [ContactInput]
     email: String!

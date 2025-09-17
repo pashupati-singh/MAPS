@@ -13,6 +13,53 @@ export const UserTypeDefs = gql`
     BLOCKED
     SUSPENDED
   }
+  enum CompanySize {
+    STARTUP
+    SME
+    ENTERPRISE
+  }
+
+  enum CompanyStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+  }
+
+   type Address {
+    address : String
+    city: String
+    state: String
+    pinCode: String
+    country: String
+    landmark: String
+  }
+
+  type Contact {
+    name: String
+    email: String
+    phone: String
+  }
+  
+  type Company {
+    id: Int
+    name: String
+    legalName: String
+    size: CompanySize
+    website: String
+    logoUrl: String
+    status: CompanyStatus
+    gstNumber: String
+    registrationNo: String
+    address: Address
+    contacts: [Contact]
+    email: String
+    phone: String
+    employees: Int
+    isEmailVerified: Boolean
+    isPhoneVerified: Boolean
+    createdAt: String
+    updatedAt: String
+  }
 
   type User {
     id: Int!
@@ -21,6 +68,7 @@ export const UserTypeDefs = gql`
     phone: String!
     role: UserRole!
     status: UserStatus!
+    company : Company
     createdAt: String!
     updatedAt: String!
   }

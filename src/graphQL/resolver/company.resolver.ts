@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { createResponse } from "../../utils/response";
 import jwt from "jsonwebtoken";
 import { Context } from "../../context";
+import { validatePassword } from "../../utils/validatePassword";
 
 const prisma = new PrismaClient();
 
@@ -13,7 +14,10 @@ export const CompanyResolver = {
      registerCompany: async (_: any, { data }: any) => {
   try {
     const { email, phone, password, status } = data;
-
+    const passwordError = validatePassword(password);
+        if (passwordError) {
+          return createResponse(400, false, passwordError);
+        }
     const existing = await prisma.company.findFirst({
       where: { OR: [{ email }, { phone }] },
     });
@@ -95,12 +99,7 @@ export const CompanyResolver = {
           console.log(`📲 OTP for phone ${otp}`);
           return createResponse(200, true, "OTP resent to phone");
         }
-        const expiryOtp = new Date();
-        expiryOtp.setHours(expiry.getHours() + 1);
         if (type === "EMAIL") {
-          // const token = jwt.sign({ email: company.email }, JWT_SECRET, {
-          //   expiresIn: "1h",
-          // });
           const token = "123456";
           await prisma.company.update({
             where: { id: company.id },
@@ -209,6 +208,10 @@ export const CompanyResolver = {
         if(!password){
           return createResponse(400, false, "Please provide password");
         }
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+          return createResponse(400, false, passwordError);
+        }
         const company = await prisma.company.findUnique({
           where: { email },
         });
@@ -249,60 +252,61 @@ export const CompanyResolver = {
       }
     },
 
-    addCompany: async (_: any, { data }: any, context:Context) => {
-      try {
-        if(!context){
-          return createResponse(400, false, "Authorization Error");
-        }
-        if(!context.user){
-          return createResponse(400, false, "Authorization Error");
-        }
-        const { id , role} = context.user;
-        if (!data) {
-          return createResponse(400, false, "Please provide data");
-        }
-        const company = await prisma.company.findFirst({
-          where: { id },
-        });
-        if (!company) {
-          return createResponse(400, false, "Company not found");
-        }
+   addCompany: async (_: any, { data }: any, context: Context) => {
+   try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    }
 
-        if (company.status === "INACTIVE") {
-          return createResponse(400, false, "Company is inactive");
-        }
-        if (company.status === "SUSPENDED") {
-          return createResponse(400, false, "Company is suspended");
-        }
-        const newCompany = await prisma.company.create({
-          data: {
-            name: data.name,
-            legalName: data.legalName,
-            size: data.size,
-            website: data.website,
-            logoUrl: data.logoUrl,
-            status: company.status || "ACTIVE",
-            gstNumber: data.gstNumber,
-            registrationNo: data.registrationNumber,
-            address: data.address ? data.address : undefined,
-            contacts: data.contacts ? data.contacts : undefined,
-            email: company.email,
-            password : company.password,
-            phone: company.phone,
-            employees: data.employees || 0,
-          },
-        });
+    if (!context.company?.id) {
+      return createResponse(400, false, "Company authorization required");
+    }
 
-        return createResponse(
-          200,
-          true,
-          "Company created successfully. Please verify your email.",
-          newCompany
-        );
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    const company = await context.prisma.company.findUnique({
+      where: { id: context.company.id },
+    });
+
+    if (!company) {
+      return createResponse(400, false, "Company not found");
+    }
+
+    if (company.status === "INACTIVE") {
+      return createResponse(400, false, "Company is inactive");
+    }
+    if (company.status === "SUSPENDED") {
+      return createResponse(400, false, "Company is suspended");
+    }
+
+    const newCompany = await context.prisma.company.create({
+      data: {
+        name: data.name,
+        legalName: data.legalName,
+        size: data.size,
+        website: data.website,
+        logoUrl: data.logoUrl,
+        status: company.status || "ACTIVE",
+        gstNumber: data.gstNumber,
+        registrationNo: data.registrationNumber,
+        address: data.address || undefined,
+        contacts: data.contacts || undefined,
+        email: company.email,
+        password: company.password,
+        phone: company.phone,
+        employees: data.employees || 0,
+      },
+    });
+
+    return createResponse(
+      200,
+      true,
+      "Company created successfully. Please verify your email.",
+      newCompany
+    );
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
   },
 };

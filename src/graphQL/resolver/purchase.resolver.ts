@@ -1,11 +1,16 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
+import { Context } from "../../context";
 
 const prisma = new PrismaClient();
 
 export const PurchaseResolver = {
   Query: {
-    purchases: async (_: any, { companyId }: { companyId: number }) => {
+    purchases: async (_: any, { companyId }: { companyId: number }, context: Context) => {
+      if (!context.company?.id || context.company.id !== companyId) {
+        return [];
+      }
+
       return prisma.purchaseHistory.findMany({
         where: { companyId },
         orderBy: { purchaseDate: "desc" },
@@ -15,9 +20,15 @@ export const PurchaseResolver = {
   Mutation: {
     purchaseSubscription: async (
       _: any,
-      { companyId, type, months, amountPaid, paymentReference }: any
+      { type, months, amountPaid, paymentReference }: any,
+      context: Context
     ) => {
       try {
+        if (!context.company?.id) {
+          return createResponse(401, false, "Unauthorized: company token required");
+        }
+
+        const companyId = context.company.id;
         const company = await prisma.company.findUnique({ where: { id: companyId } });
         if (!company) return createResponse(404, false, "Company not found");
 
@@ -65,7 +76,7 @@ export const PurchaseResolver = {
           where: { id: companyId },
           data: {
             subscriptionType: type,
-            isSubscribed: true,
+            isSubscribe: true,
             subscriptionStart: now,
             subscriptionEnd: endDate,
           },

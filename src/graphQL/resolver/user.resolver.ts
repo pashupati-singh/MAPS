@@ -3,6 +3,7 @@ import argon2 from "argon2";
 import { createResponse } from "../../utils/response";
 import jwt from "jsonwebtoken";
 import { validatePassword } from "../../utils/validatePassword";
+import { Context } from "../../context";
 
 const prisma = new PrismaClient();
 
@@ -34,9 +35,13 @@ export const UserResolver = {
     },
   },
   Mutation: {
-    createUser: async (_: any, { data }: any) => {
+    createUser: async (_: any, { data }: any ,  context: Context) => {
       try {
-        const { companyId, email, phone, password, role } = data;
+        if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
+        if (!context.company?.id) return createResponse(400, false, "Company authorization required");
+
+        const companyId = context.company.id;
+        const { email, phone, password, role } = data;
 
         if (!companyId) return createResponse(400, false, "Company ID is required");
         if (!email) return createResponse(400, false, "Email is required");
@@ -47,7 +52,15 @@ export const UserResolver = {
         if (!/^\+91[0-9]{10}$/.test(phone)) {
           return createResponse(400, false, "Phone must be in +91XXXXXXXXXX format");
         }
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+          return createResponse(400, false, passwordError);
+        }
         const hashedPassword = await argon2.hash(password);
+
+        const otp = "123456";
+        const now = new Date();
+        const expiry = new Date(now.getTime() + 1 * 60 * 1000);
 
         const user = await prisma.user.create({
           data: {
@@ -58,6 +71,12 @@ export const UserResolver = {
             role,
             status: "ACTIVE",
             mpin: null,
+            isEmailVerified: false,
+            isPhoneVerified: false,
+            phoneVerificationCode: otp,
+            emailVerificationToken : otp,
+            phoneVerificationExpiry: expiry,
+            emailVerificationExpiry: expiry
           },
         });
 
@@ -67,8 +86,12 @@ export const UserResolver = {
       }
     },
 
-    setMpin: async (_: any, { userId, mpin }: any) => {
+    setMpin: async (_: any, { mpin }: any , context: Context) => {
       try {
+        if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
+        if (!context.user?.id) return createResponse(400, false, "User authorization required");
+
+        const userId = context.user.id;
         if (!/^[0-9]{4,6}$/.test(mpin)) {
           return createResponse(400, false, "MPIN must be 4–6 digits");
         }
@@ -87,95 +110,138 @@ export const UserResolver = {
 
     verifyMpin: async (_: any, { userId, mpin }: any) => {
       try {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: { company: true },
+        });
         if (!user || !user.mpin) {
           return createResponse(404, false, "MPIN not set");
         }
 
+        if(!user.isEmailVerified) return createResponse(400, false, "Email is not verified");
+        if(!user.isPhoneVerified) return createResponse(400, false, "Phone is not verified");
+
+        if(!user.company.isSubscribe) return createResponse(400, false, "Company is not subscribed");
+        if(user.company.status === "INACTIVE") return createResponse(400, false, "Company is inactive");
+        if(user.company.status === "SUSPENDED") return createResponse(400, false, "Company is suspended");
+
         const valid = await argon2.verify(user.mpin, mpin);
         if (!valid) return createResponse(400, false, "Invalid MPIN");
 
-        return createResponse(200, true, "MPIN verified successfully", user);
+        const token = jwt.sign({ id: user.id, role: user.role , companyId: user.companyId }, process.env.JWT_SECRET!, {
+          expiresIn: "7d",
+        })
+        const data = { token, user };
+
+        return createResponse(200, true, "MPIN verified successfully", data);
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
 
-    resendOtp: async (_: any, { userId, type }: any) => {
+    resendOtp: async ( _: any, { type, email , phone }: { type: "EMAIL" | "PHONE"; email?: string; phone?: string } ) => {
       try {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return createResponse(404, false, "User not found");
+        if(!email && !phone){
+          return createResponse(400, false, "Please provide email or phone number");
+        }
+
+          const user = await prisma.user.findFirst({
+                  where: type === "PHONE" ? { phone: phone } : { email: email },
+                });
+        
+            if (!user) {
+             return createResponse(404, false, "Company not found");
+            }
 
         const expiry = new Date();
-        expiry.setMinutes(expiry.getMinutes() + 10);
+        expiry.setMinutes(expiry.getHours() + 1);
 
-        if (type === "phone") {
-          const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        if (type === "PHONE") {
+          // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+          const otp = "123456"
           await prisma.user.update({
-            where: { id: userId },
+            where: { id: user.id },
             data: {
               phoneVerificationCode: otp,
               phoneVerificationExpiry: expiry,
             },
           });
-          console.log(`📱 OTP for ${user.phone}: ${otp}`);
-        } else if (type === "email") {
-          const token = jwt.sign({ email: user.email }, process.env.JWT_SECRET!, {
-            expiresIn: "1h",
-          });
+          console.log(`📲 OTP for phone ${otp}`);
+          return createResponse(200, true, "OTP resent to phone");
+        } else if (type === "EMAIL") {
+          const token = "123456"
           await prisma.user.update({
-            where: { id: userId },
+            where: { id: user.id },
             data: {
               emailVerificationToken: token,
               emailVerificationExpiry: expiry,
             },
           });
           console.log(`📧 Email verification token for ${user.email}: ${token}`);
-        } else {
-          return createResponse(400, false, "Invalid type (use 'phone' or 'email')");
-        }
-
-        return createResponse(200, true, `OTP sent for ${type}`);
+          return createResponse(200, true, "Verification email resent");
+        } 
+          return createResponse(400, false, "Invalid type (use 'PHONE' or 'EMAIL')");
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
 
-    verifyOtp: async (_: any, { userId, type, otp }: any) => {
+    verifyOtp: async (
+      _: any,
+      { type, email, phone, otpOrToken }: { type: "EMAIL" | "PHONE"; email? : string; phone? : string; otpOrToken: string }
+    ) => {
       try {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if(!email && !phone){
+          return createResponse(400, false, "Please provide email or phone number");
+        }
+        if(!otpOrToken){
+          return createResponse(400, false, "Please provide otp or token");
+        }
+
+        if(!type){
+          return createResponse(400, false, "Please provide verification type");
+        }
+        const user = await prisma.user.findUnique({ 
+           where: type === "PHONE" ? { phone: phone } : { email: email },
+        });
         if (!user) return createResponse(404, false, "User not found");
 
         const now = new Date();
 
-        if (type === "phone") {
+        if (type === "PHONE") {
           if (
             !user.phoneVerificationCode ||
             user.phoneVerificationExpiry! < now ||
-            user.phoneVerificationCode !== otp
+            user.phoneVerificationCode !== otpOrToken
           ) {
             return createResponse(400, false, "Invalid or expired phone OTP");
           }
 
           await prisma.user.update({
-            where: { id: userId },
+            where: { id: user.id },
             data: {
+              isPhoneVerified: true,
               phoneVerificationCode: null,
               phoneVerificationExpiry: null,
             },
           });
 
           return createResponse(200, true, "Phone verified successfully");
-        } else if (type === "email") {
-          try {
-            jwt.verify(otp, process.env.JWT_SECRET!);
-          } catch {
+        } else if (type === "EMAIL") {
+          // try {
+            // jwt.verify(otp, process.env.JWT_SECRET!);
+          const valid =  user.emailVerificationToken === otpOrToken
+          // } catch {
+          //   return createResponse(400, false, "Invalid or expired email token");
+          // }
+          if(!valid){
             return createResponse(400, false, "Invalid or expired email token");
           }
 
           await prisma.user.update({
-            where: { id: userId },
+            where: { id: user.id },
             data: {
+              isEmailVerified: true,
               emailVerificationToken: null,
               emailVerificationExpiry: null,
             },
@@ -184,7 +250,7 @@ export const UserResolver = {
           return createResponse(200, true, "Email verified successfully");
         }
 
-        return createResponse(400, false, "Invalid type (use 'phone' or 'email')");
+        return createResponse(400, false, "Invalid type (use 'PHONE' or 'EMAIL')");
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
@@ -212,11 +278,11 @@ export const UserResolver = {
         if (!user) {
           return createResponse(404, false, "User not found");
         }
-        if (!user.company.isEmailVerified) {
+        if (!user.isEmailVerified) {
           return createResponse(400, false, "Please verify your email before logging in");
         }
 
-        if (!user.company.isPhoneVerified) {
+        if (!user.isPhoneVerified) {
           return createResponse(400, false, "Please verify your phone number before logging in");
         }
 
@@ -226,7 +292,7 @@ export const UserResolver = {
         const isSubscriptionActive = company.isSubscribe && company.subscriptionEnd && company.subscriptionEnd > now;
 
         if (!isSubscriptionActive) {
-          return createResponse(403, false, "Your subscription or trial has expired. Please renew to continue.");
+          return createResponse(403, false, "Company subscription or trial has expired. Please renew to continue.");
         }
         const isPasswordValid = await argon2.verify(user.password, password);
         if (!isPasswordValid) { 
@@ -237,37 +303,40 @@ export const UserResolver = {
           process.env.JWT_SECRET!,
           { expiresIn: "7d" }
         );
+        const data = { token, user , company };
 
         return {
           code: 200,
           success: true,
           message: "Login successful",
-          token,
-          user,
-          company,
+          data,
         };
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
 
-    assignMrsToAbm: async (_: any, { data }: any) => {
+    assignMrsToAbm: async (_: any, { data }: any , context :Context) => {
   try {
     const { abmId, mrIds } = data;
+
+    if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
+    if (!context.company?.id) return createResponse(400, false, "Authorization required");
+
 
     if (!abmId) return createResponse(400, false, "ABM ID is required");
     if (!mrIds || mrIds.length === 0) {
       return createResponse(400, false, "At least one MR ID is required");
     }
 
-    const abm = await prisma.user.findUnique({ where: { id: abmId } });
+    const abm = await prisma.user.findUnique({ where: { id: abmId , companyId : context.company.id} });
     if (!abm) return createResponse(404, false, "ABM not found");
     if (abm.role !== "ABM") {
       return createResponse(400, false, "Provided user is not an ABM");
     }
 
     const mrs = await prisma.user.findMany({
-      where: { id: { in: mrIds } },
+      where: { id: { in: mrIds }, companyId : context.company.id },
     });
 
     if (mrs.length !== mrIds.length) {
