@@ -8,18 +8,27 @@ export const ChemistTypeDefs = gql`
   }
 
   type Chemist {
-    id: Int
+    id: Int!
     name: String!
     titles: [String]
-    email: String
-    phone: String
     status: ChemistStatus
     address: Address
-    companies: [Company!]
+    companies: [ChemistCompany!]!   # company-specific details
     doctors: [Doctor!]
     products: [Product!]
     createdAt: String
     updatedAt: String
+  }
+
+  type ChemistCompany {
+    id: Int!
+    chemist: Chemist!
+    company: Company!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
   }
 
   type Address {
@@ -46,21 +55,31 @@ export const ChemistTypeDefs = gql`
   input CreateChemistInput {
     name: String!
     titles: [String]
-    email: String
-    phone: String
-    companyId: Int
-    doctorId: Int
     status: ChemistStatus
     address: AddressInput
+    companyId: Int!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
   }
 
   input UpdateChemistInput {
     name: String
     titles: [String]
-    email: String
-    phone: String
     status: ChemistStatus
     address: AddressInput
+  }
+
+  input UpdateChemistCompanyInput {
+    chemistId: Int!
+    companyId: Int!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
   }
 
   type ChemistResponse {
@@ -78,50 +97,55 @@ export const ChemistTypeDefs = gql`
   }
 
   input AssignChemistToCompanyInput {
-  chemistId: Int!
-  companyId: Int!
-}
+    chemistId: Int!
+    companyId: Int!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
 
-type AssignChemistToCompanyResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-  chemistCompany: ChemistCompany
-}
+  type AssignChemistToCompanyResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+    chemistCompany: ChemistCompany
+  }
 
-input UnassignChemistFromCompanyInput {
-  chemistId: Int!
-  companyId: Int!
-}
+  input UnassignChemistFromCompanyInput {
+    chemistId: Int!
+    companyId: Int!
+  }
 
-type UnassignChemistFromCompanyResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-}
+  type UnassignChemistFromCompanyResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+  }
 
-input AssignDoctorToChemistInput {
-  doctorId: Int!
-  chemistId: Int!
-}
+  input AssignDoctorToChemistInput {
+    doctorId: Int!
+    chemistId: Int!
+  }
 
-type AssignDoctorToChemistResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-  doctorChemist: DoctorChemist
-}
+  type AssignDoctorToChemistResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+    doctorChemist: DoctorChemist
+  }
 
-input UnassignDoctorFromChemistInput {
-  doctorId: Int!
-  chemistId: Int!
-}
+  input UnassignDoctorFromChemistInput {
+    doctorId: Int!
+    chemistId: Int!
+  }
 
-type UnassignDoctorFromChemistResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-}
+  type UnassignDoctorFromChemistResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+  }
 
   extend type Query {
     chemists: ChemistsResponse!
@@ -131,6 +155,7 @@ type UnassignDoctorFromChemistResponse {
   extend type Mutation {
     createChemist(input: CreateChemistInput!): ChemistResponse!
     updateChemist(input: UpdateChemistInput!): ChemistResponse!
+    updateChemistCompany(input: UpdateChemistCompanyInput!): AssignChemistToCompanyResponse
     deleteChemist(id: ID!): ChemistResponse!
     assignChemistToCompany(input: AssignChemistToCompanyInput!): AssignChemistToCompanyResponse
     unassignChemistFromCompany(input: UnassignChemistFromCompanyInput!): UnassignChemistFromCompanyResponse

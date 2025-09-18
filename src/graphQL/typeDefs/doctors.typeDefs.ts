@@ -1,19 +1,40 @@
 import { gql } from "graphql-tag";
 
 export const DoctorTypeDefs = gql`
+  enum DoctorStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+  }
+
   type Doctor {
-    id: Int
+    id: Int!
     name: String!
-    titles: [String]        
-    email: String
-    phone: String
+    titles: [String]
     status: DoctorStatus
     address: Address
-    companies: [Company!]
-    chemists: [Chemist!]
+    companies: [DoctorCompany!]!   # company-specific details
+    chemists: [Chemist!]           # linked chemists
     products: [Product!]
     createdAt: String
     updatedAt: String
+  }
+
+  type DoctorCompany {
+    id: Int!
+    doctor: Doctor!
+    company: Company!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
+
+  type DoctorChemist {
+    id: Int!
+    doctor: Doctor!
+    chemist: Chemist!
   }
 
   type Address {
@@ -28,36 +49,66 @@ export const DoctorTypeDefs = gql`
     longitude: String
   }
 
-  input addressInput {
-    address: String
-    city: String
-    state: String
-    pinCode: String
-    country: String
-    landmark: String
-  }
-
-  
-  input UpdateDoctorInput {
-    id: ID!
-    name: String
-    titles: [String]
-    email: String
-    phone: String
-    status: DoctorStatus
-    address: addressInput
-  }
+  # ------------------ Inputs ------------------
 
   input CreateDoctorInput {
     name: String!
     titles: [String]
+    status: DoctorStatus
+    address: AddressInput
+    companyId: Int!
     email: String
     phone: String
-    companyId: Int!
-    status: DoctorStatus
-    address: addressInput
+    dob: String
+    anniversary: String
+    approxTarget: Int
   }
 
+  input UpdateDoctorInput {
+    name: String
+    titles: [String]
+    status: DoctorStatus
+    address: AddressInput
+  }
+
+  input UpdateDoctorCompanyInput {
+    doctorId: Int!
+    companyId: Int!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
+
+  # Assign/Unassign Chemists (bulk)
+  input AssignDoctorToChemistsInput {
+    doctorId: Int!
+    chemistIds: [Int!]!
+  }
+
+  input UnassignDoctorFromChemistsInput {
+    doctorId: Int!
+    chemistIds: [Int!]!
+  }
+
+  # Assign/Unassign Company
+  input AssignDoctorToCompanyInput {
+    doctorId: Int!
+    companyId: Int!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
+
+  input UnassignDoctorFromCompanyInput {
+    doctorId: Int!
+    companyId: Int!
+  }
+
+  # ------------------ Responses ------------------
 
   type DoctorResponse {
     code: Int!
@@ -66,40 +117,56 @@ export const DoctorTypeDefs = gql`
     doctor: Doctor
   }
 
-  type Query {
+  type DoctorsResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
     doctors: [Doctor!]
-    doctor(id: ID!): Doctor
   }
 
-input AssignDoctorToCompanyInput {
-  doctorId: Int!
-  companyId: Int!
-}
+  type AssignDoctorToChemistsResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+    doctorChemists: [DoctorChemist!]
+  }
 
-type DoctorCompanyResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-  doctorCompany: DoctorCompany
-}
+  type UnassignDoctorFromChemistsResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+  }
 
-input UnassignDoctorFromCompanyInput {
-  doctorId: Int!
-  companyId: Int!
-}
+  type AssignDoctorToCompanyResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+    doctorCompany: DoctorCompany
+  }
 
-type UnassignDoctorFromCompanyResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-}
+  type UnassignDoctorFromCompanyResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+  }
 
+  # ------------------ Queries & Mutations ------------------
 
-  type Mutation {
-    createDoctor(input: CreateDoctorInput!): DoctorResponse
-    updateDoctor(input: UpdateDoctorInput!): DoctorResponse
-    assignDoctorToCompany(input: AssignDoctorToCompanyInput!): DoctorCompanyResponse
-    unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse
-    deleteDoctor(id: ID!): DoctorResponse
+  extend type Query {
+    doctors: DoctorsResponse!
+    doctor(id: ID!): DoctorResponse!
+  }
+
+  extend type Mutation {
+    createDoctor(input: CreateDoctorInput!): DoctorResponse!
+    updateDoctor(input: UpdateDoctorInput!): DoctorResponse!
+    updateDoctorCompany(input: UpdateDoctorCompanyInput!): DoctorCompany
+    deleteDoctor(id: ID!): DoctorResponse!
+
+    assignDoctorToChemists(input: AssignDoctorToChemistsInput!): AssignDoctorToChemistsResponse!
+    unassignDoctorFromChemists(input: UnassignDoctorFromChemistsInput!): UnassignDoctorFromChemistsResponse!
+
+    assignDoctorToCompany(input: AssignDoctorToCompanyInput!): AssignDoctorToCompanyResponse!
+    unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse!
   }
 `;

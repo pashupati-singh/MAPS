@@ -159,51 +159,90 @@ model Address {
 }
 
 model Doctor {
-  id                     Int      @id @default(autoincrement())
-  name                   String
-  titles                 Json?    
-  email                  String?  @unique
-  phone                  String?  @unique
-  status                 String   @default("ACTIVE")
+  id               Int      @id @default(autoincrement())
+  name             String
+  titles           Json?
+  status           String   @default("ACTIVE")
 
-  addressId              Int?
-  address                Address? @relation(fields: [addressId], references: [id])
+  addressId        Int?
+  address          Address? @relation(fields: [addressId], references: [id])
 
-  companies              DoctorCompany[]
-  chemists               DoctorChemist[]
-  products               DoctorProduct[]
+  companies        DoctorCompany[]
+  chemists         DoctorChemist[]
+  products         DoctorProduct[]
 
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  dailyPlans             DailyPlanDoctor[]
-  dailyCallReports       DailyCallReport[]
-  stocks                 Stock[]
-  sale                   Sale[]
+  dailyPlans       DailyPlanDoctor[]
+  dailyCallReports DailyCallReport[]
+  stocks           Stock[]
+  sale             Sale[]
 }
 
 model Chemist {
-  id        Int      @id @default(autoincrement())
-  name      String
-  titles    Json?    
-  email     String?  @unique
-  phone     String?  @unique
-  status    String   @default("ACTIVE")
+  id               Int      @id @default(autoincrement())
+  name             String
+  titles           Json?
+  status           String   @default("ACTIVE")
 
-  addressId Int?
-  address   Address? @relation(fields: [addressId], references: [id])
+  addressId        Int?
+  address          Address? @relation(fields: [addressId], references: [id])
 
-  companies ChemistCompany[]
-  doctors   DoctorChemist[]
-  products  ChemistProduct[]
+  companies        ChemistCompany[]
+  doctors          DoctorChemist[]
+  products         ChemistProduct[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  dailyPlans   DailyPlanChemist[]
+  dailyPlans       DailyPlanChemist[]
   dailyCallReports DailyCallReport[]
-   stocks          Stock[]
-   sale            Sale[]
+  stocks           Stock[]
+  sale             Sale[]
+}
+
+model DoctorCompany {
+  id           Int      @id @default(autoincrement())
+  doctorId     Int
+  companyId    Int
+
+  email        String?
+  phone        String?
+  dob          DateTime?
+  anniversary  DateTime?
+  approxTarget Int?
+
+  doctor       Doctor  @relation(fields: [doctorId], references: [id])
+  company      Company @relation(fields: [companyId], references: [id])
+
+  @@unique([doctorId, companyId])
+}
+
+model ChemistCompany {
+  id           Int      @id @default(autoincrement())
+  chemistId    Int
+  companyId    Int
+
+  email        String?
+  phone        String?
+  dob          DateTime?
+  anniversary  DateTime?
+  approxTarget Int?
+
+  chemist      Chemist @relation(fields: [chemistId], references: [id])
+  company      Company @relation(fields: [companyId], references: [id])
+
+  @@unique([chemistId, companyId])
+}
+
+model DoctorChemist {
+  id        Int     @id @default(autoincrement())
+  doctorId  Int
+  chemistId Int
+
+  doctor    Doctor  @relation(fields: [doctorId], references: [id])
+  chemist   Chemist @relation(fields: [chemistId], references: [id])
 }
 
 model Product {
@@ -224,33 +263,6 @@ model Product {
   stocks                    Stock[]
   productTarget             ProductTarget[]
   sale                      Sale[]
-}
-
-model DoctorCompany {
-  id        Int     @id @default(autoincrement())
-  doctorId  Int
-  companyId Int
-
-  doctor    Doctor  @relation(fields: [doctorId], references: [id])
-  company   Company @relation(fields: [companyId], references: [id])
-}
-
-model ChemistCompany {
-  id        Int     @id @default(autoincrement())
-  chemistId Int
-  companyId Int
-
-  chemist   Chemist @relation(fields: [chemistId], references: [id])
-  company   Company @relation(fields: [companyId], references: [id])
-}
-
-model DoctorChemist {
-  id        Int     @id @default(autoincrement())
-  doctorId  Int
-  chemistId Int
-
-  doctor    Doctor  @relation(fields: [doctorId], references: [id])
-  chemist   Chemist @relation(fields: [chemistId], references: [id])
 }
 
 model DoctorProduct {
