@@ -95,6 +95,9 @@ model Company {
   productTarget             ProductTarget[]
   sale                      Sale[]
   expense                   Expense[]
+  doctorChemists            DoctorChemist[]
+  chemistProduct            ChemistProduct[]
+  doctorProduct             DoctorProduct[]
 }
 
 model PurchaseHistory {
@@ -240,10 +243,15 @@ model DoctorChemist {
   id        Int     @id @default(autoincrement())
   doctorId  Int
   chemistId Int
+  companyId Int
 
   doctor    Doctor  @relation(fields: [doctorId], references: [id])
   chemist   Chemist @relation(fields: [chemistId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+
+  @@unique([doctorId, chemistId, companyId])
 }
+
 
 model Product {
   id                        Int      @id @default(autoincrement())
@@ -269,9 +277,11 @@ model DoctorProduct {
   id        Int      @id @default(autoincrement())
   doctorId  Int
   productId Int
+  companyId Int
 
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
   product   Product  @relation(fields: [productId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
 
   assignedAt DateTime @default(now())
 }
@@ -280,9 +290,11 @@ model ChemistProduct {
   id        Int      @id @default(autoincrement())
   chemistId Int
   productId Int
+  companyId Int
 
   chemist   Chemist  @relation(fields: [chemistId], references: [id])
   product   Product  @relation(fields: [productId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
 
   assignedAt DateTime @default(now())
 }

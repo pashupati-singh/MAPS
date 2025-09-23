@@ -1,3 +1,4 @@
+import { Context } from "../../context";
 import { getLatLongFromAddress } from "../../utils/latlong";
 import { createResponse } from "../../utils/response";
 import { PrismaClient } from "@prisma/client";
@@ -141,6 +142,7 @@ export const ChemistResolvers = {
             data: {
               chemistId: chemist.id,
               doctorId: input.doctorId,
+              companyId: input.companyId,
             },
           });
         }
@@ -318,11 +320,13 @@ export const ChemistResolvers = {
       }
     },
 
-    assignDoctorToChemist: async (_: any, { input }: any) => {
+    assignDoctorToChemist: async (_: any, { input }: any , context : Context) => {
       try {
+        if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
         const { doctorId, chemistId } = input;
+        const {id} = context.company
         const existingLink = await prisma.doctorChemist.findFirst({
-          where: { doctorId, chemistId },
+          where: { doctorId, chemistId , companyId : id},
         });
 
         if (existingLink) {
@@ -334,7 +338,7 @@ export const ChemistResolvers = {
         }
 
         const doctorChemist = await prisma.doctorChemist.create({
-          data: { doctorId, chemistId },
+          data: { doctorId, chemistId , companyId : id},
         });
 
         return createResponse(
@@ -348,11 +352,13 @@ export const ChemistResolvers = {
       }
     },
 
-    unassignDoctorFromChemist: async (_: any, { input }: any) => {
+    unassignDoctorFromChemist: async (_: any, { input }: any , context : Context) => {
       try {
+        if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
+        const {id} = context.company
         const { doctorId, chemistId } = input;
         const existingLink = await prisma.doctorChemist.findFirst({
-          where: { doctorId, chemistId },
+          where: { doctorId, chemistId , companyId : id},
         });
 
         if (!existingLink) {

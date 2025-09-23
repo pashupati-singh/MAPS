@@ -1,3 +1,4 @@
+import { Context } from "../../context";
 import { getLatLongFromAddress } from "../../utils/latlong";
 import { createResponse } from "../../utils/response";
 import { PrismaClient } from "@prisma/client";
@@ -287,18 +288,20 @@ export const DoctorResolvers = {
       }
     },
 
-    assignDoctorToChemists: async (_: any, { input }: any) => {
+    assignDoctorToChemists: async (_: any, { input }: any , context : Context) => {
       try {
+        if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
+        const {id} = context.company
         const { doctorId, chemistIds } = input;
         const doctorChemists: any[] = [];
 
         for (const chemistId of chemistIds) {
           const existingLink = await prisma.doctorChemist.findFirst({
-            where: { doctorId, chemistId },
+            where: { doctorId, chemistId , companyId : id},
           });
           if (!existingLink) {
             const link = await prisma.doctorChemist.create({
-              data: { doctorId, chemistId },
+              data: { doctorId, chemistId , companyId : id },
             });
             doctorChemists.push(link);
           }
@@ -312,12 +315,14 @@ export const DoctorResolvers = {
       }
     },
 
-    unassignDoctorFromChemists: async (_: any, { input }: any) => {
+    unassignDoctorFromChemists: async (_: any, { input }: any , context : Context) => {
       try {
+        if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
+        const {id} = context.company
         const { doctorId, chemistIds } = input;
 
         await prisma.doctorChemist.deleteMany({
-          where: { doctorId, chemistId: { in: chemistIds } },
+          where: { doctorId, chemistId: { in: chemistIds } , companyId : id},
         });
 
         return createResponse(200, true, "Doctor unassigned from chemists successfully");

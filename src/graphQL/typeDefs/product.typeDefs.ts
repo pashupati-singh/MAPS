@@ -1,9 +1,27 @@
 import { gql } from "graphql-tag";
 
-export const ChemistTypeDefs = gql`type Mutation {
+export const ProductTypeDefs = gql`
+type Mutation {
   createProduct(input: CreateProductInput!): ProductResponse!
   assignProductToDoctor(input: AssignProductToDoctorInput!): AssignProductToDoctorResponse!
   assignProductToChemist(input: AssignProductToChemistInput!): AssignProductToChemistResponse!
+  updateProduct(id: Int!, input: UpdateProductInput!): ProductResponse!
+  unassignProductFromDoctor(doctorId: Int!, productId: Int!): ProductResponse!
+  unassignProductFromChemist(chemistId: Int!, productId: Int!): ProductResponse!
+}
+
+type Query {
+  getProductById(productId: Int!): ProductResponse!
+  getProductsByCompany: ProductResponse!
+  getProductsByDoctor(doctorId: Int!): ProductResponse!
+  getProductsByChemist(chemistId: Int!): ProductResponse!
+}
+
+input UpdateProductInput {
+  name: String
+  type: String
+  salt: String
+  details: JSON
 }
 
 input CreateProductInput {
@@ -11,7 +29,6 @@ input CreateProductInput {
   type: String!
   salt: String
   details: JSON
-  companyId: Int!
 }
 
 input AssignProductToDoctorInput {
