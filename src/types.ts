@@ -20,6 +20,7 @@ export type SubscriptionResponse = {
 
 // ==============================================================
 // context
+
 export interface TokenPayload {
   id: number;
   role: string;
@@ -27,10 +28,11 @@ export interface TokenPayload {
 
 export interface Context {
   prisma: PrismaClient;
-  user?: TokenPayload | null;
+  user?: (TokenPayload & { companyId?: number }) | null;
   company?: { id: number } | null;
   authError: string | null;
 }
+
 
 
 // ==============================================================

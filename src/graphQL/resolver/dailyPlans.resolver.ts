@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
+import { Context } from "../../context";
 
 const prisma = new PrismaClient();
 
@@ -63,9 +64,26 @@ export const DailyPlanResolver = {
   },
 
   Mutation: {
-    createDailyPlan: async (_: any, { data }: any) => {
+    createDailyPlan: async (_: any, { data }: any, context : Context) => {
       try {
-        const { mrId, abmId, companyId, doctorIds, chemistIds, workTogether, planDate, notes } = data;
+        if(!context){
+          return createResponse(400, false, "Token missing or invalid");
+        }
+        if(!context.user){
+          return createResponse(400, false, "User not found");
+        }
+        const {id , role} = context.user;
+        if(role !== "MR"){
+          return createResponse(400, false, "Only MRs can create daily plans");
+        }
+        const mrId = id;
+
+        const companyId = context.company?.id;
+        if(!companyId){
+          return createResponse(400, false, "Company Id is missing");
+        }
+
+        const { abmId, doctorIds, chemistIds, workTogether, planDate, notes } = data;
 
         if (!mrId || !companyId || !planDate) {
           return createResponse(400, false, "MR ID, Company ID, and Plan Date are required");
@@ -103,21 +121,41 @@ export const DailyPlanResolver = {
       }
     },
 
-    updateDailyPlan: async (_: any, { data }: any) => {
+    updateDailyPlan: async (_: any, { data }: any , context : Context) => {
       try {
-        const { id, notes, doctorIds, chemistIds } = data;
+        if(!context){
+          return createResponse(400, false, "Token missing or invalid");
+        }
+        if(!context.user){
+          return createResponse(400, false, "User not found");
+        }
+        const {id , role} = context.user;
 
-        if (!id) {
+        const companyId = context.company?.id;
+        if(!companyId){
+          return createResponse(400, false, "Company Id is missing");
+        }
+
+        const { dailyPlanId, notes, doctorIds, chemistIds } = data;
+
+        if (!dailyPlanId) {
           return createResponse(400, false, "Plan ID is required");
         }
 
         const plan = await prisma.dailyPlan.findUnique({
-          where: { id },
+          where: { id : dailyPlanId },
           include: { doctors: true, chemists: true },
         });
 
         if (!plan) {
           return createResponse(404, false, "Daily plan not found");
+        }
+
+        if(plan.companyId !== companyId){
+          return createResponse(400, false, "You are not authorized to update this daily plan");
+        }
+        if(plan.mrId !== id && role !== "MR"){
+          return createResponse(400, false, "You are not authorized to update this daily plan");
         }
 
         const updatedData: any = {};
@@ -126,27 +164,27 @@ export const DailyPlanResolver = {
         }
 
        await prisma.dailyPlan.update({
-          where: { id },
+          where: { id : dailyPlanId },
           data: updatedData,
         });
 
         if (doctorIds) {
-          await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: id } });
+          await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: dailyPlanId } });
           await prisma.dailyPlanDoctor.createMany({
-            data: doctorIds.map((doctorId: number) => ({ dailyPlanId: id, doctorId })),
+            data: doctorIds.map((doctorId: number) => ({ dailyPlanId: dailyPlanId, doctorId })),
             skipDuplicates: true,
           });
         }
         if (chemistIds) {
-          await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: id } });
+          await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: dailyPlanId } });
           await prisma.dailyPlanChemist.createMany({
-            data: chemistIds.map((chemistId: number) => ({ dailyPlanId: id, chemistId })),
+            data: chemistIds.map((chemistId: number) => ({ dailyPlanId: dailyPlanId, chemistId })),
             skipDuplicates: true,
           });
         }
 
         const planWithRelations = await prisma.dailyPlan.findUnique({
-          where: { id },
+          where: { id : dailyPlanId },
           include: {
             doctors: true,
             chemists: true,
@@ -165,18 +203,35 @@ export const DailyPlanResolver = {
       }
     },
 
-    updateDailyPlanByAbm: async (_: any, { data }: any) => {
+    updateDailyPlanByAbm: async (_: any, { data }: any , context : Context) => {
   try {
-    const { id, isApproved, isRejected, isWorkTogetherConfirmed } = data;
+    if(!context){
+      return createResponse(400, false, "Token missing or invalid");
+    }
+    if(!context.user){
+      return createResponse(400, false, "User not found");
+    }
 
-    if (!id) {
+    const {id , role} = context.user;
+    if(role !== "ABM"){
+      return createResponse(400, false, "Your role is not ABM");
+    }
+
+    const companyId = context.company?.id;
+    if(!companyId){
+       return createResponse(400, false, "Company Id is missing");
+    }
+    
+    const { dailyPlanId, isApproved, isRejected, isWorkTogetherConfirmed } = data;
+
+    if (!dailyPlanId) {
       return createResponse(400, false, "Plan ID is required");
     }
 
     const plan = await prisma.dailyPlan.findUnique({
-      where: { id },
+      where: { id : dailyPlanId },
       select: {
-        id: true,
+        companyId: true,
         isApproved: true,
         isRejected: true,
         workTogether: true,
@@ -188,24 +243,25 @@ export const DailyPlanResolver = {
       return createResponse(404, false, "Daily plan not found");
     }
 
-    // 🔒 Validation
+    if(plan.companyId !== companyId){
+      return createResponse(400, false, "You are not authorized to update this daily plan");
+    }
+
     if (isApproved && isRejected) {
       return createResponse(400, false, "Plan cannot be both approved and rejected");
     }
 
     const updatedData: any = {};
 
-    // ✅ ABM can approve or reject
     if (isApproved !== undefined) {
       updatedData.isApproved = isApproved;
-      if (isApproved) updatedData.isRejected = false; // auto reset reject
+      if (isApproved) updatedData.isRejected = false; 
     }
     if (isRejected !== undefined) {
       updatedData.isRejected = isRejected;
-      if (isRejected) updatedData.isApproved = false; // auto reset approve
+      if (isRejected) updatedData.isApproved = false; 
     }
 
-    // ✅ ABM can confirm workTogether ONLY if MR set workTogether = true
     if (isWorkTogetherConfirmed !== undefined) {
       if (plan.workTogether) {
         updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
@@ -235,13 +291,22 @@ export const DailyPlanResolver = {
   }
 },
 
-    deleteDailyPlan: async (_: any, { id }: { id: number }) => {
+    deleteDailyPlan: async (_: any, { dailyPlanId }: { dailyPlanId: number } , context : Context) => {
       try {
-        if (!id) {
+        if(!context){
+          return createResponse(400, false, "Token missing or invalid");
+        }
+        if(!context.user){
+          return createResponse(400, false, "User not found");
+        }
+        const {id , role} = context.user;
+        
+
+        if (!dailyPlanId) {
           return createResponse(400, false, "Plan ID is required");
         }
 
-        const plan = await prisma.dailyPlan.findUnique({ where: { id } });
+        const plan = await prisma.dailyPlan.findUnique({ where: { id : dailyPlanId } });
         if (!plan) {
           return createResponse(404, false, "Daily plan not found");
         }

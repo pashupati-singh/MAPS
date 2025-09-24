@@ -30,7 +30,7 @@ export const DailyPlanTypeDefs = gql`
   }
 
   input UpdateDailyPlanInput {
-    id: Int!
+    dailyPlanId: Int!
     notes: String
     doctorIds: [Int!]    # Optional: update list of doctors
     chemistIds: [Int!]   # Optional: update list of chemists
@@ -51,7 +51,7 @@ export const DailyPlanTypeDefs = gql`
   }
 
   input UpdateByAbmInput {
-  id: Int!
+  dailyPlanId: Int!
   isApproved: Boolean
   isRejected: Boolean
   isWorkTogetherConfirmed: Boolean
@@ -66,6 +66,6 @@ export const DailyPlanTypeDefs = gql`
     createDailyPlan(data: CreateDailyPlanInput!): DailyPlanResponse!
     updateDailyPlan(data: UpdateDailyPlanInput!): DailyPlanResponse!
     updateDailyPlanByAbm(data: UpdateByAbmInput!): DailyPlanResponse!
-    deleteDailyPlan(id: Int!): DailyPlanResponse!
+    deleteDailyPlan(dailyPlanId: Int!): DailyPlanResponse!
   }
 `;

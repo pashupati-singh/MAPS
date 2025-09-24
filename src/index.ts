@@ -1,7 +1,8 @@
 import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
 import { typeDefs, resolvers } from "./graphQL/schema";
-import { createContext, Context } from "./middleware/auth";
+import { createContext } from "./middleware/auth";
+import { Context } from "./context";
 
 const PORT = Number(process.env.PORT) || 4000;
 
