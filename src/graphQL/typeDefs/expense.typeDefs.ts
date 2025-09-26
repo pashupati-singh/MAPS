@@ -8,49 +8,50 @@ export const ExpenseTypeDefs = gql`
     SAMPLE
     OTHER
   }
+type Expense {
+  id: Int!
+  userId: Int!
+  companyId: Int!
+  category: ExpenseCategory!
+  description: String
+  amount: Float!
+  expenseDate: String!
+  isApproved: Boolean!
+  isCompleted: Boolean!  
+  createdAt: String!
+  updatedAt: String!
+}
 
-  type Expense {
-    id: Int!
-    userId: Int!
-    companyId: Int!
-    category: ExpenseCategory!
-    description: String
-    amount: Float!
-    expenseDate: String!
-    isApproved: Boolean!
-    createdAt: String!
-    updatedAt: String!
-  }
+input CreateExpenseInput {
+  userId: Int!
+  companyId: Int!
+  category: ExpenseCategory!
+  description: String
+  amount: Float!
+  expenseDate: String!
+}
 
-  input CreateExpenseInput {
-    userId: Int!
-    companyId: Int!
-    category: ExpenseCategory!
-    description: String
-    amount: Float!
-    expenseDate: String!
-  }
+type ExpenseResponse {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: Expense
+}
 
-  type ExpenseResponse {
-    code: Int!
-    success: Boolean!
-    message: String
-    data: Expense
-  }
+type ExpenseReport {
+  totalAmount: Float!
+  expenses: [Expense!]!
+}
 
-  type ExpenseReport {
-    totalAmount: Float!
-    expenses: [Expense!]!
-  }
+type Query {
+  getExpenseReport(companyId: Int!, startDate: String!, endDate: String!): ExpenseReport!
+  getExpenseById(id: Int!): ExpenseResponse!
+}
 
-  type Query {
-    # Get expenses within a custom date range
-    getExpenseReport(companyId: Int!, startDate: String!, endDate: String!): ExpenseReport!
-    getExpenseById(id: Int!): ExpenseResponse!
-  }
+type Mutation {
+  createExpense(data: CreateExpenseInput!): ExpenseResponse!
+  completeExpense(userId: Int!, companyId: Int!): ExpenseResponse! 
+  approveExpense(id: Int!): ExpenseResponse!
+}
 
-  type Mutation {
-    createExpense(data: CreateExpenseInput!): ExpenseResponse!
-    approveExpense(id: Int!): ExpenseResponse!
-  }
 `;

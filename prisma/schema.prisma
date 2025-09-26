@@ -353,15 +353,20 @@ model DailyCallReport {
   abmId           Int?
   doctorId        Int?
   chemistId       Int?
+  
   typeOfReport    ReportType
   reportDate      DateTime   // Must equal dailyPlan.planDate
   reportStartTime String     // "HH:mm"
   reportEndTime   String     // "HH:mm"
   duration        Int        // minutes
   remarks         String?
-  latitude        Float?
-  longitude       Float?
+  latitudeMR        Float?
+  longitudeMR      Float?
   products        Json       // e.g. [1,2,3,4]
+  mrReportCompleted Boolean  @default(false)
+  abmReportCompleted Boolean  @default(false)
+  latitudeABM        Float?
+  longitudeABM     Float?
 
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -382,6 +387,7 @@ model Stock {
   qty            Int
   dateOfUpdate   DateTime  @default(now())
   dateOfReminder DateTime?
+  minAvailability Int      @default(0)
 
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -463,6 +469,7 @@ model Expense {
   amount      Float
   expenseDate DateTime
   isApproved  Boolean   @default(false) // for ABM/Admin approval
+  isCompleted Boolean   @default(false) // ✅ user signals finished expense submission
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -470,3 +477,4 @@ model Expense {
   user        User      @relation(fields: [userId], references: [id])
   company     Company   @relation(fields: [companyId], references: [id])
 }
+

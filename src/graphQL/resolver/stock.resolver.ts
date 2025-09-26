@@ -1,10 +1,21 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
+import { Context } from "../../context";
+import { MidTimeDate } from "../../utils/midTimeDate";
 
 const prisma = new PrismaClient();
 
 export const StockResolver = {
+   Stock: {
+    color: (parent: any) => {
+      if (parent.qty <= parent.minAvailability) {
+        return "red";
+      }
+      return "green";
+    },
+  },
   Query: {
+   
     getStockById: async (_: any, { id }: { id: number }) => {
       try {
         if (!id) return createResponse(400, false, "Stock ID is required");
@@ -63,34 +74,105 @@ export const StockResolver = {
     },
   },
 
-  Mutation: {
-    createStock: async (_: any, { data }: any) => {
+//   Mutation: {
+//     createStock: async (_: any, { data }: any) => {
+//       try {
+//         const {
+//           mrId,
+//           doctorId,
+//           chemistId,
+//           productId,
+//           qty,
+//           dateOfUpdate,
+//           dateOfReminder,
+//         } = data;
+//         if (!doctorId && !chemistId) {
+//           return createResponse(400, false, "Either doctorId or chemistId is required");
+//         }
+//         if (doctorId && chemistId) {
+//           return createResponse(400, false, "Cannot assign both doctor and chemist");
+//         }
+
+//         const stock = await prisma.stock.create({
+//           data: {
+//             mrId,
+//             doctorId,
+//             chemistId,
+//             productId,
+//             qty,
+//             dateOfUpdate: dateOfUpdate,
+//             dateOfReminder: dateOfReminder
+//           },
+//         });
+
+//         return createResponse(201, true, "Stock created successfully", stock);
+//       } catch (err: any) {
+//         return createResponse(500, false, err.message);
+//       }
+//     },
+
+//     updateStock: async (_: any, { id, mrId, qty, dateOfUpdate, dateOfReminder }: any) => {
+//   try {
+//     if (!id) return createResponse(400, false, "Stock ID is required");
+//     if (!mrId) return createResponse(400, false, "MR ID is required");
+
+//     // ✅ Check stock ownership
+//     const stock = await prisma.stock.findUnique({ where: { id } });
+//     if (!stock) return createResponse(404, false, "Stock not found");
+
+//     if (stock.mrId !== mrId) {
+//       return createResponse(403, false, "You are not allowed to update this stock");
+//     }
+
+//     // ✅ Update fields
+//     const updatedStock = await prisma.stock.update({
+//       where: { id },
+//       data: {
+//         qty: qty ?? stock.qty,
+//         dateOfUpdate: dateOfUpdate ? new Date(dateOfUpdate) : new Date(),
+//         dateOfReminder: dateOfReminder ? new Date(dateOfReminder) : stock.dateOfReminder,
+//       },
+//     });
+
+//     return createResponse(200, true, "Stock updated successfully", updatedStock);
+//   } catch (err: any) {
+//     return createResponse(500, false, err.message);
+//   }
+// },
+
+//   },
+
+ Mutation: {
+    createStock: async (_: any, { data }: any, context: Context) => {
       try {
-        const {
-          mrId,
-          doctorId,
-          chemistId,
-          productId,
-          qty,
-          dateOfUpdate,
-          dateOfReminder,
-        } = data;
+        if (!context?.user) return createResponse(400, false, "User not authenticated");
+        if (context.user.role !== "MR") return createResponse(403, false, "Only MR can create stock");
+        if (!context.company?.id) return createResponse(400, false, "Company ID is missing");
+
+        const { doctorId, chemistId, productId, qty, minAvailability, dateOfReminder } = data;
+
         if (!doctorId && !chemistId) {
           return createResponse(400, false, "Either doctorId or chemistId is required");
         }
         if (doctorId && chemistId) {
           return createResponse(400, false, "Cannot assign both doctor and chemist");
         }
+        if(!productId){
+          return createResponse(400, false, "Product is required");
+        }
 
+        const reminderDate = dateOfReminder ? new Date(dateOfReminder.split("T")[0]) : null;
+        const dateOfUpdate = MidTimeDate();
         const stock = await prisma.stock.create({
           data: {
-            mrId,
+            mrId: context.user.id,
             doctorId,
             chemistId,
             productId,
             qty,
-            dateOfUpdate: dateOfUpdate,
-            dateOfReminder: dateOfReminder
+            minAvailability,
+            dateOfUpdate,
+            dateOfReminder: reminderDate,
           },
         });
 
@@ -100,34 +182,35 @@ export const StockResolver = {
       }
     },
 
-    updateStock: async (_: any, { id, mrId, qty, dateOfUpdate, dateOfReminder }: any) => {
-  try {
-    if (!id) return createResponse(400, false, "Stock ID is required");
-    if (!mrId) return createResponse(400, false, "MR ID is required");
+    updateStock: async (_: any, { data }: any, context: Context) => {
+      try {
+        if (!context?.user) return createResponse(400, false, "User not authenticated");
+        if (context.user.role !== "MR") return createResponse(403, false, "Only MR can update stock");
 
-    // ✅ Check stock ownership
-    const stock = await prisma.stock.findUnique({ where: { id } });
-    if (!stock) return createResponse(404, false, "Stock not found");
+        const { id, qty, minAvailability, dateOfReminder } = data;
 
-    if (stock.mrId !== mrId) {
-      return createResponse(403, false, "You are not allowed to update this stock");
-    }
+        const stock = await prisma.stock.findUnique({ where: { id } });
+        if (!stock) return createResponse(404, false, "Stock not found");
+        if (stock.mrId !== context.user.id) {
+          return createResponse(403, false, "You are not allowed to update this stock");
+        }
 
-    // ✅ Update fields
-    const updatedStock = await prisma.stock.update({
-      where: { id },
-      data: {
-        qty: qty ?? stock.qty,
-        dateOfUpdate: dateOfUpdate ? new Date(dateOfUpdate) : new Date(),
-        dateOfReminder: dateOfReminder ? new Date(dateOfReminder) : stock.dateOfReminder,
-      },
-    });
+        const reminderDate = dateOfReminder ? new Date(dateOfReminder.split("T")[0]) : stock.dateOfReminder;
 
-    return createResponse(200, true, "Stock updated successfully", updatedStock);
-  } catch (err: any) {
-    return createResponse(500, false, err.message);
-  }
-},
+        const updatedStock = await prisma.stock.update({
+          where: { id },
+          data: {
+            qty: qty ?? stock.qty,
+            minAvailability: minAvailability ?? stock.minAvailability,
+            dateOfUpdate: MidTimeDate(),
+            dateOfReminder: reminderDate,
+          },
+        });
 
+        return createResponse(200, true, "Stock updated successfully", updatedStock);
+      } catch (err: any) {
+        return createResponse(500, false, err.message);
+      }
+    },
   },
 };

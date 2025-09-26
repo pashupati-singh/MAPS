@@ -68,7 +68,7 @@ export async function createContext({ req }: any): Promise<Context> {
     (req.body as any)?.token;
 
   const companyIdFromHeader = req.headers["x-company-id"]
-    ? parseInt(req.headers["x-company-id"], 10)
+    ? parseInt(req.headers["x-company-id"].toString())
     : null;
 
   if (!token) {

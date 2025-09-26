@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { isLocationWithinRange } from "../../utils/distance";
+import { Context } from "../../context";
 
 const prisma = new PrismaClient();
 
@@ -65,11 +66,10 @@ export const DailyCallReportResolver = {
   },
 
   Mutation: {
-    createDcr: async (_: any, { data }: any) => {
+    createDcr: async (_: any, { data }: any , context : Context) => {
   try {
     const {
       dailyPlanId,
-      mrId,
       abmId,
       doctorId,
       chemistId,
@@ -82,21 +82,39 @@ export const DailyCallReportResolver = {
       longitude,
     } = data;
 
-    if (!mrId && !abmId) {
-      return createResponse(400, false, "Either MR ID or ABM ID is required");
+    if(!context){
+      return createResponse(400, false, "Token missing or invalid");
     }
+    if(!context.user){
+      return createResponse(400, false, "User not found");
+    }
+
+    const {id , role} = context.user;
+    const mrId = id;
+    if(role !== "MR"){
+      return createResponse(400, false, "not authorised");
+    }
+    const companyId = context.company?.id;
+    if(!companyId){
+       return createResponse(400, false, "Company Id is missing");
+    }
+    
+    if(!latitude || !longitude) return createResponse(400, false, "Location is required");
+    if(!doctorId || !chemistId) return createResponse(400, false, "Either doctorId or chemistId is required");
 
     const dailyPlan = await prisma.dailyPlan.findUnique({
       where: { id: dailyPlanId },
       include: { doctors: { include: { doctor: { include: { address: true } } } }, chemists: { include: { chemist: { include: { address: true } } } } },
     });
     if (!dailyPlan) return createResponse(404, false, "Daily plan not found");
-
+    if (dailyPlan.workTogether && !dailyPlan.abmId)  return createResponse( 400, false, "ABM is required since workTogether is true" );
+        
     if (doctorId && chemistId) {
       return createResponse(400, false, "Cannot assign both doctor and chemist");
     }
-
-    // ✅ Doctor validation
+    if (abmId && dailyPlan.abmId !== abmId) {
+      return createResponse(403, false, "ABM not assigned to this daily plan");
+    }
     let targetLat: number | null = null;
     let targetLon: number | null = null;
 
@@ -113,7 +131,6 @@ export const DailyCallReportResolver = {
       targetLon = doctor.address.longitude;
     }
 
-    // ✅ Chemist validation
     if (chemistId) {
       const chemistEntry = dailyPlan.chemists.find(c => c.chemistId === chemistId);
       if (!chemistEntry) return createResponse(400, false, "Chemist not in this daily plan");
@@ -127,22 +144,15 @@ export const DailyCallReportResolver = {
       targetLon = chemist.address.longitude;
     }
 
-    // ✅ ABM validation
-    if (abmId && dailyPlan.abmId !== abmId) {
-      return createResponse(403, false, "ABM not assigned to this daily plan");
-    }
-
-    // ✅ Calculate duration
     const [sh, sm] = reportStartTime.split(":").map(Number);
     const [eh, em] = reportEndTime.split(":").map(Number);
     const duration = (eh * 60 + em) - (sh * 60 + sm);
     if (duration <= 0) return createResponse(400, false, "Invalid report times");
 
-    // ✅ Location validation (50m rule)
     if (latitude && longitude && targetLat && targetLon) {
       const inRange = isLocationWithinRange(latitude, longitude, targetLat, targetLon, 50);
       if (!inRange) {
-        return createResponse(400, false, "You are not at the doctor's/chemist's location (distance > 50m)");
+        return createResponse(400, false, "You are not at location");
       }
     }
 
@@ -160,8 +170,9 @@ export const DailyCallReportResolver = {
         duration,
         products,
         remarks,
-        latitude,
-        longitude,
+        mrReportCompleted : true,
+        latitudeMR: latitude,
+        longitudeMR: longitude,
       },
     });
 
@@ -170,5 +181,61 @@ export const DailyCallReportResolver = {
     return createResponse(500, false, err.message);
   }
 },
+    async updateDcrByAbm(_: any, { data }: any, context: Context) {
+  try {
+    if (!context?.user) {
+      return createResponse(400, false, "User not authenticated");
+    }
+
+    const { id: userId, role } = context.user;
+    if (role !== "ABM") {
+      return createResponse(400, false, "Only ABM can update DCR");
+    }
+    if (!data.dcrId) {
+      return createResponse(400, false, "DCR ID is required");
+    }
+    if (!data.latitude || !data.longitude) {
+      return createResponse(400, false, "Location is required");
+    }
+
+    const existing = await prisma.dailyCallReport.findUnique({
+      where: { id: data.dcrId },
+      include: { dailyPlan: true },
+    });
+
+    if (!existing) {
+      return createResponse(404, false, "DCR not found");
+    }
+
+    if (!existing.abmId || existing.abmId !== userId) {
+      return createResponse(403, false, "You are not assigned to this DCR");
+    }
+
+    if (existing.latitudeMR && existing.longitudeMR) {
+      const inRange = isLocationWithinRange(
+        data.latitude,
+        data.longitude,
+        existing.latitudeMR,
+        existing.longitudeMR,
+        50
+      );
+      if (!inRange) {
+        return createResponse(400, false, "You are not at MR's location");
+      }
+    }
+
+    const updated = await prisma.dailyCallReport.update({
+      where: { id: data.dcrId },
+      data: {
+        latitudeABM: data.latitude,
+        longitudeABM: data.longitude,
+        abmReportCompleted: true,
+      },
+    })
+    return createResponse(200, true, "DCR updated successfully by ABM", updated);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+}
   },
 };

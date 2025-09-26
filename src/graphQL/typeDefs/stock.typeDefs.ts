@@ -1,28 +1,41 @@
 import { gql } from "graphql-tag";
 
 export const StockTypeDefs = gql`
-  type Stock {
-    id: Int!
-    mrId: Int!
-    doctorId: Int
-    chemistId: Int
-    productId: Int!
-    qty: Int!
-    dateOfUpdate: String!
-    dateOfReminder: String
-    createdAt: String!
-    updatedAt: String!
-  }
+type Stock {
+  id: Int!
+  mrId: Int!
+  doctorId: Int
+  chemistId: Int
+  productId: Int!
+  qty: Int!
+  minAvailability: Int!
+  dateOfUpdate: String!
+  dateOfReminder: String
+  createdAt: String!
+  updatedAt: String!
+  color: String!   # 🔑 Computed field
+}
 
-  input CreateStockInput {
-    mrId: Int!
-    doctorId: Int
-    chemistId: Int
-    productId: Int!
-    qty: Int!
-    dateOfUpdate: String
-    dateOfReminder: String
-  }
+input CreateStockInput {
+  mrId: Int!
+  doctorId: Int
+  chemistId: Int
+  productId: Int!
+  qty: Int!
+  minAvailability: Int!   # 🔑
+  dateOfUpdate: String
+  dateOfReminder: String
+}
+
+input UpdateStockInput {
+  id: Int!
+  mrId: Int!
+  qty: Int
+  minAvailability: Int
+  dateOfUpdate: String
+  dateOfReminder: String
+}
+
 
   type StockResponse {
     code: Int!
@@ -38,13 +51,7 @@ export const StockTypeDefs = gql`
     data: [Stock!]
   }
 
-  input UpdateStockInput {
-  id: Int!
-  mrId: Int!
-  qty: Int
-  dateOfUpdate: String
-  dateOfReminder: String
-}
+
 
   type Query {
     getStockById(id: Int!): StockResponse!

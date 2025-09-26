@@ -20,17 +20,19 @@ export const DailyCallReportTypeDefs = gql`
     reportEndTime: String!
     duration: Int!
     remarks: String
-    latitude: Float
-    longitude: Float
+    latitudeMR: Float
+    longitudeMR: Float
+    latitudeABM: Float
+    longitudeABM: Float
     products: [Int!]!
+    mrReportCompleted: Boolean!
+    abmReportCompleted: Boolean!
     createdAt: String!
     updatedAt: String!
   }
 
   input CreateDcrInput {
     dailyPlanId: Int!
-    mrId: Int!         # MR userId
-    abmId: Int         # optional
     doctorId: Int
     chemistId: Int
     typeOfReport: ReportType!
@@ -40,6 +42,16 @@ export const DailyCallReportTypeDefs = gql`
     remarks: String
     latitude: Float
     longitude: Float
+  }
+
+  input UpdateDcrByAbmInput {
+    dcrId: Int!
+    reportStartTime: String!
+    reportEndTime: String!
+    remarks: String
+    latitude: Float
+    longitude: Float
+    products: [Int!]!
   }
 
   type DailyCallReportResponse {
@@ -66,5 +78,6 @@ export const DailyCallReportTypeDefs = gql`
 
   type Mutation {
     createDcr(data: CreateDcrInput!): DailyCallReportResponse!
+    updateDcrByAbm(data: UpdateDcrByAbmInput!): DailyCallReportResponse!
   }
 `;
