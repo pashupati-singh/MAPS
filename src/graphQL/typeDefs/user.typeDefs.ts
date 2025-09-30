@@ -97,22 +97,22 @@ export const UserTypeDefs = gql`
   company: Company
 }
 
-  type Query {
-    getUser(companyId: Int!): UserResponse!
-    userId (id: Int!): UserResponse!
-  }
-
   input AssignMrsToAbmInput {
   abmId: Int!
   mrIds: [Int!]!
 }
 
+  type Query {
+    getUser(companyId: Int!): UserResponse!
+    userId (id: Int!): UserResponse!
+  }
+
   type Mutation {
     createUser(data: CreateUserInput!): UserResponse!
-    setMpin(userId: Int!, mpin: String!): UserResponse!
-    verifyMpin(userId: Int!, mpin: String!): UserResponse!
-    resendOtp(userId: Int!, type: String!): UserResponse!
-    verifyOtp(userId: Int!, type: String!, otp: String!): UserResponse!
+    setMpin( mpin: String!): UserResponse!
+    verifyMpin(userId: Int!, mpin: String!): AuthPayload!
+    resendOtp(email: String, phone: String, type: String!): UserResponse!
+    verifyOtp(type : String!, email : String, phone : String, otpOrToken : String!): UserResponse!
     loginUser(email: String!, password: String!): AuthPayload!
     assignMrsToAbm(data: AssignMrsToAbmInput!): UserResponse!
   }

@@ -4,20 +4,9 @@ export const TargetTypeDefs = gql`
   type Target {
     id: Int!
     companyId: Int!
-    userId: Int
-    year: Int!
-    month: Int
-    quarter: Int
-    halfYear: Int
-    createdAt: String!
-    updatedAt: String!
-  }
-
-  type ProductTarget {
-    id: Int!
-    companyId: Int!
-    userId: Int
-    productId: Int!
+    userId: Int!
+    doctorId: Int
+    chemistId: Int
     year: Int!
     month: Int
     quarter: Int
@@ -27,19 +16,19 @@ export const TargetTypeDefs = gql`
   }
 
   input CreateTargetInput {
-    companyId: Int!
-    userId: Int!       # MR ID
+    doctorId: Int
+    chemistId: Int
     year: Int!
     month: Int
     quarter: Int
     halfYear: Int
   }
 
-  input CreateProductTargetInput {
-    companyId: Int!
-    userId: Int!       # MR ID
-    productId: Int!
-    year: Int!
+  input UpdateTargetInput {
+    id: Int!
+    doctorId: Int
+    chemistId: Int
+    year: Int
     month: Int
     quarter: Int
     halfYear: Int
@@ -52,13 +41,6 @@ export const TargetTypeDefs = gql`
     data: Target
   }
 
-  type ProductTargetResponse {
-    code: Int!
-    success: Boolean!
-    message: String
-    data: ProductTarget
-  }
-
   type TargetListResponse {
     code: Int!
     success: Boolean!
@@ -66,25 +48,14 @@ export const TargetTypeDefs = gql`
     data: [Target!]
   }
 
-  type ProductTargetListResponse {
-    code: Int!
-    success: Boolean!
-    message: String
-    data: [ProductTarget!]
-  }
-
   extend type Query {
-    getMrTargets(userId: Int!): TargetListResponse!
+    getMrTargets: TargetListResponse!
     getAbmTargets(abmId: Int!): TargetListResponse!
-    getCompanyTargets(companyId: Int!): TargetListResponse!
-
-    getMrProductTargets(userId: Int!): ProductTargetListResponse!
-    getAbmProductTargets(abmId: Int!, productId: Int!): ProductTargetListResponse!
-    getCompanyProductTargets(companyId: Int!, productId: Int!): ProductTargetListResponse!
+    getCompanyTargets: TargetListResponse!
   }
 
   extend type Mutation {
     createTarget(data: CreateTargetInput!): TargetResponse!
-    createProductTarget(data: CreateProductTargetInput!): ProductTargetResponse!
+    updateTarget(data: UpdateTargetInput!): TargetResponse!
   }
 `;

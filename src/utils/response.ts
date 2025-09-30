@@ -2,7 +2,8 @@ export const createResponse = (
   code: number,
   success: boolean,
   message: string,
-  data: any = {}
+  data: any = null
 ) => {
-  return { code, success, message, ...data };
+  return { code, success, message, data };
 };
+  

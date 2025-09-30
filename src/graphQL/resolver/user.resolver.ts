@@ -7,9 +7,11 @@ import { Context } from "../../context";
 
 const prisma = new PrismaClient();
 
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
+
 export const UserResolver = {
      Query: {
-    getUsers: async (_: any, { companyId }: { companyId: number }) => {
+    getUser: async (_: any, { companyId }: { companyId: number }) => {
       try {
         if (!companyId) {
           return createResponse(400, false, "Company ID is required");
@@ -38,9 +40,9 @@ export const UserResolver = {
     createUser: async (_: any, { data }: any ,  context: Context) => {
       try {
         if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id) return createResponse(400, false, "Company authorization required");
+        if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
 
-        const companyId = context.company.id;
+        const companyId = context?.user?.companyId;
         const { email, phone, password, role } = data;
 
         if (!companyId) return createResponse(400, false, "Company ID is required");
@@ -89,9 +91,9 @@ export const UserResolver = {
     setMpin: async (_: any, { mpin }: any , context: Context) => {
       try {
         if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.user?.id) return createResponse(400, false, "User authorization required");
+        if (!context.user?.userId) return createResponse(400, false, "User authorization required");
 
-        const userId = context.user.id;
+        const userId = context.user.userId;
         if (!/^[0-9]{4,6}$/.test(mpin)) {
           return createResponse(400, false, "MPIN must be 4–6 digits");
         }
@@ -121,19 +123,24 @@ export const UserResolver = {
         if(!user.isEmailVerified) return createResponse(400, false, "Email is not verified");
         if(!user.isPhoneVerified) return createResponse(400, false, "Phone is not verified");
 
-        if(!user.company.isSubscribe) return createResponse(400, false, "Company is not subscribed");
+        // if(!user.company.isSubscribe) return createResponse(400, false, "Company is not subscribed");
         if(user.company.status === "INACTIVE") return createResponse(400, false, "Company is inactive");
         if(user.company.status === "SUSPENDED") return createResponse(400, false, "Company is suspended");
 
         const valid = await argon2.verify(user.mpin, mpin);
         if (!valid) return createResponse(400, false, "Invalid MPIN");
 
-        const token = jwt.sign({ id: user.id, role: user.role , companyId: user.companyId }, process.env.JWT_SECRET!, {
+        const token = jwt.sign({ userId: user.id, role: user.role , companyId: user.companyId }, JWT_SECRET, {
           expiresIn: "7d",
         })
-        const data = { token, user };
 
-        return createResponse(200, true, "MPIN verified successfully", data);
+        return {
+           code: 200,
+          success: true,
+          message: "Login successful",
+          token,
+          user
+        };
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
@@ -154,7 +161,7 @@ export const UserResolver = {
             }
 
         const expiry = new Date();
-        expiry.setMinutes(expiry.getHours() + 1);
+        expiry.setHours(expiry.getHours() + 1);
 
         if (type === "PHONE") {
           // const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -209,6 +216,7 @@ export const UserResolver = {
         const now = new Date();
 
         if (type === "PHONE") {
+          console.log(user.phoneVerificationCode, user.phoneVerificationExpiry, now, otpOrToken);
           if (
             !user.phoneVerificationCode ||
             user.phoneVerificationExpiry! < now ||
@@ -289,27 +297,28 @@ export const UserResolver = {
         const now = new Date();
         const { company } = user;
 
-        const isSubscriptionActive = company.isSubscribe && company.subscriptionEnd && company.subscriptionEnd > now;
+        // const isSubscriptionActive = company.isSubscribe && company.subscriptionEnd && company.subscriptionEnd > now;
 
-        if (!isSubscriptionActive) {
-          return createResponse(403, false, "Company subscription or trial has expired. Please renew to continue.");
-        }
+        // if (!isSubscriptionActive) {
+        //   return createResponse(403, false, "Company subscription or trial has expired. Please renew to continue.");
+        // }
         const isPasswordValid = await argon2.verify(user.password, password);
         if (!isPasswordValid) { 
           return createResponse(401, false, "Invalid password");
         }
         const token = jwt.sign(
           { userId: user.id, companyId: company.id, role: user.role },
-          process.env.JWT_SECRET!,
+          JWT_SECRET ,
           { expiresIn: "7d" }
         );
-        const data = { token, user , company };
+        
 
         return {
           code: 200,
           success: true,
           message: "Login successful",
-          data,
+          token,
+          user,
         };
       } catch (err: any) {
         return createResponse(500, false, err.message);
@@ -319,9 +328,8 @@ export const UserResolver = {
     assignMrsToAbm: async (_: any, { data }: any , context :Context) => {
   try {
     const { abmId, mrIds } = data;
-
     if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-    if (!context.company?.id) return createResponse(400, false, "Authorization required");
+    if (!context.user?.companyId) return createResponse(400, false, "Authorization required");
 
 
     if (!abmId) return createResponse(400, false, "ABM ID is required");
@@ -329,14 +337,14 @@ export const UserResolver = {
       return createResponse(400, false, "At least one MR ID is required");
     }
 
-    const abm = await prisma.user.findUnique({ where: { id: abmId , companyId : context.company.id} });
+    const abm = await prisma.user.findUnique({ where: { id: abmId , companyId : context.user?.companyId} });
     if (!abm) return createResponse(404, false, "ABM not found");
     if (abm.role !== "ABM") {
       return createResponse(400, false, "Provided user is not an ABM");
     }
 
     const mrs = await prisma.user.findMany({
-      where: { id: { in: mrIds }, companyId : context.company.id },
+      where: { id: { in: mrIds }, companyId : context.user?.companyId },
     });
 
     if (mrs.length !== mrIds.length) {
@@ -365,9 +373,3 @@ export const UserResolver = {
 },
   },
 }
-
-
-
-
-
-//  this is the code of my schema and code of typeDEfs and resolver of my user now, now we need to create a callreport in which we get the companyId, doctorId or chemistId, date (currentdate like "2025-09-20T00:00:00:0000Z" according to IST), productIds more then one ids should exist startTime and endTime these are in the string "00:00" and remark. 

@@ -65,8 +65,8 @@ model Company {
   logoUrl                   String?
   status                    CompanyStatus  @default(ACTIVE)
   email                     String         @unique
-  password                  String 
-  phone                     String         @unique
+  password                  String
+  phone                     String        @unique
   address                   Json?
   contacts                  Json?
   employees                 Int?
@@ -181,6 +181,7 @@ model Doctor {
   dailyCallReports DailyCallReport[]
   stocks           Stock[]
   sale             Sale[]
+  target           Target[] 
 }
 
 model Chemist {
@@ -203,6 +204,7 @@ model Chemist {
   dailyCallReports DailyCallReport[]
   stocks           Stock[]
   sale             Sale[]
+  target           Target[]
 }
 
 model DoctorCompany {
@@ -402,6 +404,8 @@ model Target {             // Sales target (general, not product-specific)
   id        Int      @id @default(autoincrement())
   companyId Int
   userId    Int?          // MR (ABM/Company = sum of MR targets)
+  doctorId  Int?
+  chemistId  Int?
   year      Int
   month     Int?          // 1–12
   quarter   Int?          // 1–4
@@ -412,9 +416,9 @@ model Target {             // Sales target (general, not product-specific)
 
   company   Company @relation(fields: [companyId], references: [id])
   user      User?   @relation(fields: [userId], references: [id])
-
-  @@index([companyId, year, month, quarter, halfYear])
-  @@index([userId, year, month, quarter, halfYear])
+  doctor    Doctor? @relation(fields: [doctorId], references: [id])
+  chemist   Chemist?@relation(fields: [chemistId], references: [id])
+ 
 }
 
 model ProductTarget {      // Product-specific target

@@ -4,6 +4,7 @@ import { createResponse } from "../../utils/response";
 import jwt from "jsonwebtoken";
 import { Context } from "../../context";
 import { validatePassword } from "../../utils/validatePassword";
+import { validateIndianPhoneNumber } from "../../utils/validatePhoneNumber";
 
 const prisma = new PrismaClient();
 
@@ -13,11 +14,19 @@ export const CompanyResolver = {
   Mutation: {
      registerCompany: async (_: any, { data }: any) => {
   try {
-    const { email, phone, password, status } = data;
+    const { email, phone, password } = data;
+    if(!email) return createResponse(400, false, "Please provide email");
+    if(!phone) return createResponse(400, false, "Please provide phone number");
+    if(!password) return createResponse(400, false, "Please provide password");
+    if(!email.includes("@")) return createResponse(400, false, "Please provide valid email");
+    if(email) email.toLowerCase();
+    const validationPhone = await validateIndianPhoneNumber(phone);
+    if(!validationPhone) return createResponse(400, false, "The number should start with +91, followed by 10 digits.");
     const passwordError = validatePassword(password);
         if (passwordError) {
           return createResponse(400, false, passwordError);
         }
+
     const existing = await prisma.company.findFirst({
       where: { OR: [{ email }, { phone }] },
     });
@@ -41,7 +50,7 @@ export const CompanyResolver = {
         email,
         phone,
         password: hashedPassword,
-        status: status || "ACTIVE",
+        status: "ACTIVE",
         isEmailVerified: false,
         isPhoneVerified: false,
         emailVerificationToken: emailToken,
@@ -73,6 +82,16 @@ export const CompanyResolver = {
         if(!email && !phone){
           return createResponse(400, false, "Please provide email or phone number");
         }
+        if(phone){
+          const validationPhone = await validateIndianPhoneNumber(phone);
+          if(!validationPhone) return createResponse(400, false, "The number should start with +91, followed by 10 digits.");
+        }
+        if(type){
+          type.toUpperCase();
+        }
+        if(email){
+          email.toLowerCase();
+        }
 
         const company = await prisma.company.findFirst({
           where: type === "PHONE" ? { phone: phone } : { email: email },
@@ -81,7 +100,10 @@ export const CompanyResolver = {
         if (!company) {
           return createResponse(404, false, "Company not found");
         }
-
+        if(type === "PHONE" && company.isPhoneVerified) return createResponse(400, false, "Phone number already verified");
+        if(type === "EMAIL" && company.isEmailVerified) return createResponse(400, false, "Email already verified");
+        if(type === "PHONE" && !phone) return createResponse(400, false, "please provide phone number");
+        if(type === "EMAIL" && !email) return createResponse(400, false, "please provide email");
         const expiry = new Date();
         expiry.setHours(expiry.getHours() + 1);
 
@@ -127,13 +149,26 @@ export const CompanyResolver = {
         if(!email && !phone){
           return createResponse(400, false, "Please provide email or phone number");
         }
+
         if(!otpOrToken){
           return createResponse(400, false, "Please provide otp or token");
         }
-
+         
         if(!type){
           return createResponse(400, false, "Please provide verification type");
         }
+         if(phone){
+          const validationPhone = await validateIndianPhoneNumber(phone);
+          if(!validationPhone) return createResponse(400, false, "The number should start with +91, followed by 10 digits.");
+        }
+        if(type){
+          type.toUpperCase();
+        }
+        if(email){
+          email.toLowerCase();
+        }
+        if(type === "PHONE" && !phone) return createResponse(400, false, "please provide phone number");
+        if(type === "EMAIL" && !email) return createResponse(400, false, "please provide email");
 
         const company = await prisma.company.findFirst({
           where: type === "PHONE" ? { phone: phone } : { email: email },
@@ -149,7 +184,7 @@ export const CompanyResolver = {
             !company.otpExpiry ||
             company.otpExpiry < new Date()
           ) {
-            return createResponse(400, false, "OTP expired or not generated");
+            return createResponse(400, false, "OTP expired");
           }
 
           if (company.phoneOtp !== otpOrToken) {
@@ -169,12 +204,13 @@ export const CompanyResolver = {
         }
 
         if (type === "EMAIL") {
-          try {
-            jwt.verify(otpOrToken, JWT_SECRET);
-          } catch {
-            return createResponse(400, false, "Invalid or expired token");
-          }
+          // try {
+          //   jwt.verify(otpOrToken, JWT_SECRET);
 
+          // } catch {
+          //   return createResponse(400, false, "Invalid or expired token");
+          // }
+         if(company.emailVerificationToken !== otpOrToken) return createResponse(400, false, "Invalid token");
           if (
             !company.emailVerificationExpiry ||
             company.emailVerificationExpiry < new Date()
@@ -200,70 +236,110 @@ export const CompanyResolver = {
       }
     },
 
-    loginCompany: async (_: any, { email, password }: any) => {
-      try {
-        if(!email){
-          return createResponse(400, false, "Please provide email");
-        }
-        if(!password){
-          return createResponse(400, false, "Please provide password");
-        }
-        const passwordError = validatePassword(password);
-        if (passwordError) {
-          return createResponse(400, false, passwordError);
-        }
-        const company = await prisma.company.findUnique({
-          where: { email },
-        });
+   loginCompany: async (_: any, { email, password, phone, type }: any) => {
+  try {
+    type = type?.toUpperCase();
 
-        if (!company) {
-          return createResponse(404, false, "Company not found");
-        }
-         if (company.status === "INACTIVE") {
-            return createResponse(400, false, "Company is inactive");
-          }
-          if(company.status === "SUSPENDED"){
-            return createResponse(400, false, "Company is suspended");
-          }
+    if (!type) {
+      return createResponse(400, false, "Please provide login type");
+    }
 
-        if (!company.isEmailVerified) {
-          return createResponse(400, false, "Please verify your email before logging in");
-        }
-
-        if (!company.isPhoneVerified) {
-          return createResponse(400, false, "Please verify your phone number before logging in");
-        }
-
-        const isPasswordValid = await argon2.verify(company.password, password);
-        if (!isPasswordValid) {
-          return createResponse(400, false, "Invalid password");
-        }
-
-        const token = jwt.sign({ companyId : company.id }, JWT_SECRET, {
-          expiresIn: "7h",
-        });
-        const data = {
-          ...company,
-          token,
-        };
-        return createResponse(200, true, "Company logged in successfully", data);
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
+    if (type === "EMAIL") {
+      if (!email) {
+        return createResponse(400, false, "Please provide email");
       }
-    },
+      email = email.toLowerCase();
+    }
+
+    if (type === "PHONE") {
+      if (!phone) {
+        return createResponse(400, false, "Please provide phone number");
+      }
+      const isValidPhone = validateIndianPhoneNumber(phone);
+      if (!isValidPhone) {
+        return createResponse(
+          400,
+          false,
+          "The number should start with +91 and have exactly 10 digits."
+        );
+      }
+    }
+
+    if (!password) {
+      return createResponse(400, false, "Please provide password");
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return createResponse(400, false, passwordError);
+    }
+
+          const company = await prisma.company.findFirst({
+          where: type === "PHONE" ? { phone: phone } : { email: email },
+        });
+
+    if (!company) {
+      return createResponse(404, false, "Company not found");
+    }
+
+    if (company.status === "INACTIVE") {
+      return createResponse(400, false, "Company is inactive");
+    }
+
+    if (company.status === "SUSPENDED") {
+      return createResponse(400, false, "Company is suspended");
+    }
+
+    if (!company.isEmailVerified) {
+      return createResponse(
+        400,
+        false,
+        "Please verify your email before logging in"
+      );
+    }
+
+    if (!company.isPhoneVerified) {
+      return createResponse(
+        400,
+        false,
+        "Please verify your phone number before logging in"
+      );
+    }
+
+    if(!company.password) return createResponse(400, false, "Password not found");
+
+    const isPasswordValid = await argon2.verify(company?.password , password);
+    if (!isPasswordValid) {
+      return createResponse(400, false, "Invalid password");
+    }
+
+    const token = jwt.sign({ companyId: company.id }, JWT_SECRET, {
+      expiresIn: "7h",
+    });
+    const data = {token , company}; 
+    return {
+      code: 200,
+      success: true,
+      message: "Company logged in successfully",
+      data,
+    }
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+   },
+
 
    addCompany: async (_: any, { data }: any, context: Context) => {
    try {
     if (!context || context.authError) {
       return createResponse(400, false, context.authError || "Authorization Error");
     }
-
-    if (!context.company?.id) {
+    if (!context.user?.companyId) {
       return createResponse(400, false, "Company authorization required");
     }
 
     const company = await context.prisma.company.findUnique({
-      where: { id: context.company.id },
+      where: { id: context?.user?.companyId },
     });
 
     if (!company) {
@@ -277,8 +353,9 @@ export const CompanyResolver = {
       return createResponse(400, false, "Company is suspended");
     }
 
-    const newCompany = await context.prisma.company.create({
-      data: {
+  const updatedCompany = await context.prisma.company.update({
+  where: { id: context.user.companyId },
+  data: {
         name: data.name,
         legalName: data.legalName,
         size: data.size,
@@ -289,10 +366,9 @@ export const CompanyResolver = {
         registrationNo: data.registrationNumber,
         address: data.address || undefined,
         contacts: data.contacts || undefined,
-        email: company.email,
-        password: company.password,
-        phone: company.phone,
         employees: data.employees || 0,
+        email : company.email,
+        phone : company.phone
       },
     });
 
@@ -300,7 +376,7 @@ export const CompanyResolver = {
       200,
       true,
       "Company created successfully. Please verify your email.",
-      newCompany
+      updatedCompany
     );
   } catch (err: any) {
     return createResponse(500, false, err.message);

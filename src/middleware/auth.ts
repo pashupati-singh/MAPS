@@ -53,7 +53,7 @@ import jwt, { TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 import { Context } from "../context";
 
-const SECRET = process.env.JWT_SECRET || "MEDICMAPS";
+const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 const prisma = new PrismaClient();
 
 export async function createContext({ req }: any): Promise<Context> {
@@ -81,7 +81,7 @@ export async function createContext({ req }: any): Promise<Context> {
   }
 
   try {
-    const decoded = jwt.verify(token, SECRET) as { id: number; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
 
     if (companyIdFromHeader) {
       return {

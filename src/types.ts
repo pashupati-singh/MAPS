@@ -22,7 +22,7 @@ export type SubscriptionResponse = {
 // context
 
 export interface TokenPayload {
-  id: number;
+  userId: number;
   role: string;
 }
 
