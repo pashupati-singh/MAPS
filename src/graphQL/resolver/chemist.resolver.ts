@@ -319,7 +319,7 @@ export const ChemistResolvers = {
         return createResponse(500, false, err.message);
       }
     },
-
+ 
     assignDoctorToChemist: async (_: any, { input }: any , context : Context) => {
       try {
         if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
