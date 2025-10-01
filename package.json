@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon src/dev.ts",
     "build": "tsc && tsc-alias && tsc-esm-fix dist",
     "start": "node dist/index.js",
     "postinstall": "prisma generate"
@@ -15,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "@apollo/server": "^5.0.0",
+    "@as-integrations/next": "^4.0.0",
     "@graphql-tools/merge": "^9.1.1",
     "@prisma/client": "^6.15.0",
     "apollo-server": "^3.13.0",
