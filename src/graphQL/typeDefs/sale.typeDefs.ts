@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const SaleTypeDefs = gql`
+
+export const SaleTypeDefs =`#graphql
   type Sale {
     id: Int!
     mrId: Int!

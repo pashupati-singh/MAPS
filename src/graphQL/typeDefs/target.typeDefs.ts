@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const TargetTypeDefs = gql`
+
+export const TargetTypeDefs = `#graphql
   type Target {
     id: Int!
     companyId: Int!

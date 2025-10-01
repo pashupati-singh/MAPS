@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const ProductTypeDefs = gql`
+
+export const ProductTypeDefs = `#graphql
 type Mutation {
   createProduct(input: CreateProductInput!): ProductResponse!
   assignProductToDoctor(input: AssignProductToDoctorInput!): AssignProductToDoctorResponse!

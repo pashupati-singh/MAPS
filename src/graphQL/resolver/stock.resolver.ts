@@ -165,7 +165,7 @@ export const StockResolver = {
         const dateOfUpdate = MidTimeDate();
         const stock = await prisma.stock.create({
           data: {
-            mrId: context.user.id,
+            mrId: context.user.userId,
             doctorId,
             chemistId,
             productId,
@@ -191,7 +191,7 @@ export const StockResolver = {
 
         const stock = await prisma.stock.findUnique({ where: { id } });
         if (!stock) return createResponse(404, false, "Stock not found");
-        if (stock.mrId !== context.user.id) {
+        if (stock.mrId !== context.user.userId) {
           return createResponse(403, false, "You are not allowed to update this stock");
         }
 

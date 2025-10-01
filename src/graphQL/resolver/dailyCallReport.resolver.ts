@@ -89,8 +89,8 @@ export const DailyCallReportResolver = {
       return createResponse(400, false, "User not found");
     }
 
-    const {id , role} = context.user;
-    const mrId = id;
+    const {userId , role} = context.user;
+    const mrId = userId;
     if(role !== "MR"){
       return createResponse(400, false, "not authorised");
     }
@@ -187,7 +187,7 @@ export const DailyCallReportResolver = {
       return createResponse(400, false, "User not authenticated");
     }
 
-    const { id: userId, role } = context.user;
+    const { userId: userId, role } = context.user;
     if (role !== "ABM") {
       return createResponse(400, false, "Only ABM can update DCR");
     }

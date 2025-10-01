@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const PurchaseTypeDefs = gql`
+
+export const PurchaseTypeDefs = `#graphql
 
   enum SubscriptionType {
     TRIAL

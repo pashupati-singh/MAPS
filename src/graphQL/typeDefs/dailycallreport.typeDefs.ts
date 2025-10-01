@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const DailyCallReportTypeDefs = gql`
+
+export const DailyCallReportTypeDefs = `#graphql
   enum ReportType {
     CALL
     APPOINTMENT

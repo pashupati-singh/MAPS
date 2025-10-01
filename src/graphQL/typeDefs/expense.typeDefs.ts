@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const ExpenseTypeDefs = gql`
+
+export const ExpenseTypeDefs = `#graphql
   enum ExpenseCategory {
     TRAVEL
     FOOD

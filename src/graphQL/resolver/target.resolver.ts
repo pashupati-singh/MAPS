@@ -10,7 +10,7 @@ export const TargetResolver = {
       try {
         if (!context?.user) return createResponse(401, false, "Unauthorized");
         const targets = await prisma.target.findMany({
-          where: { userId: context.user.id },
+          where: { userId: context.user.userId },
         });
         return createResponse(200, true, "MR targets fetched", targets);
       } catch (err: any) {
@@ -68,7 +68,7 @@ export const TargetResolver = {
         const existing = await prisma.target.findFirst({
           where: {
             companyId: context.company.id,
-            userId: context.user.id,
+            userId: context.user.userId,
             doctorId: doctorId ?? undefined,
             chemistId: chemistId ?? undefined,
           },
@@ -80,7 +80,7 @@ export const TargetResolver = {
         const target = await prisma.target.create({
           data: {
             companyId: context.company.id,
-            userId: context.user.id,
+            userId: context.user.userId,
             doctorId,
             chemistId,
             year,
@@ -106,7 +106,7 @@ export const TargetResolver = {
         const existing = await prisma.target.findUnique({ where: { id } });
         if (!existing) return createResponse(404, false, "Target not found");
 
-        if (existing.userId !== context.user.id) {
+        if (existing.userId !== context.user.userId) {
           return createResponse(403, false, "You can only update your own targets");
         }
 
@@ -117,7 +117,7 @@ export const TargetResolver = {
         const duplicate = await prisma.target.findFirst({
           where: {
             companyId: context.company.id,
-            userId: context.user.id,
+            userId: context.user.userId,
             doctorId: doctorId ?? existing.doctorId ?? undefined,
             chemistId: chemistId ?? existing.chemistId ?? undefined,
             year: year ?? existing.year,

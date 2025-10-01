@@ -46,7 +46,7 @@ export const ExpenseResolvers = {
           expenseDate: date,
           category: data.category,
           description: data.description,
-          userId: context.user.id,
+          userId: context.user.userId,
           companyId: context.company.id,
         },
       });
@@ -56,9 +56,9 @@ export const ExpenseResolvers = {
 
     async completeExpense(_: any, { userId }: { userId: number;  }, context: Context) {
       if (!context?.user) return createResponse(400, false, "User not authenticated");
-      if(!context.company?.id) return createResponse(400, false, "Company ID missing");
-      const companyId = context.company.id;
-      if (context.user.id !== userId) {
+      if(!context.user?.companyId) return createResponse(400, false, "Company ID missing");
+      const companyId = context.user.companyId;
+      if (context.user.userId !== userId) {
         return createResponse(403, false, "You can only complete your own expenses");
       }
 

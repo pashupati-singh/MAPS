@@ -1,6 +1,6 @@
-import { gql } from 'graphql-tag';
 
-export const CompanyTypeDefs = gql`
+
+export const CompanyTypeDefs = `#graphql
 
   enum CompanySize {
     STARTUP

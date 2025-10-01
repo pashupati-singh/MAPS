@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const DoctorTypeDefs = gql`
+
+export const DoctorTypeDefs = `#graphql
   enum DoctorStatus {
     ACTIVE
     INACTIVE

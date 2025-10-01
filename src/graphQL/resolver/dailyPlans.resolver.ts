@@ -72,11 +72,11 @@ export const DailyPlanResolver = {
         if(!context.user){
           return createResponse(400, false, "User not found");
         }
-        const {id , role} = context.user;
+        const {userId , role} = context.user;
         if(role !== "MR"){
           return createResponse(400, false, "Only MRs can create daily plans");
         }
-        const mrId = id;
+        const mrId = userId;
 
         const companyId = context.company?.id;
         if(!companyId){
@@ -129,9 +129,8 @@ export const DailyPlanResolver = {
         if(!context.user){
           return createResponse(400, false, "User not found");
         }
-        const {id , role} = context.user;
+        const {userId ,companyId , role} = context.user;
 
-        const companyId = context.company?.id;
         if(!companyId){
           return createResponse(400, false, "Company Id is missing");
         }
@@ -154,7 +153,7 @@ export const DailyPlanResolver = {
         if(plan.companyId !== companyId){
           return createResponse(400, false, "You are not authorized to update this daily plan");
         }
-        if(plan.mrId !== id && role !== "MR"){
+        if(plan.mrId !== userId && role !== "MR"){
           return createResponse(400, false, "You are not authorized to update this daily plan");
         }
 
@@ -212,12 +211,11 @@ export const DailyPlanResolver = {
       return createResponse(400, false, "User not found");
     }
 
-    const {id , role} = context.user;
+    const {userId, companyId , role} = context.user;
     if(role !== "ABM"){
       return createResponse(400, false, "Your role is not ABM");
     }
 
-    const companyId = context.company?.id;
     if(!companyId){
        return createResponse(400, false, "Company Id is missing");
     }
@@ -271,7 +269,7 @@ export const DailyPlanResolver = {
     }
 
     const updatedPlan = await prisma.dailyPlan.update({
-      where: { id },
+      where: { id : dailyPlanId },
       data: updatedData,
       include: {
         doctors: true,
@@ -299,7 +297,7 @@ export const DailyPlanResolver = {
         if(!context.user){
           return createResponse(400, false, "User not found");
         }
-        const {id , role} = context.user;
+        const {userId , role} = context.user;
         
 
         if (!dailyPlanId) {
@@ -310,10 +308,10 @@ export const DailyPlanResolver = {
         if (!plan) {
           return createResponse(404, false, "Daily plan not found");
         }
-        await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: id } });
-        await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: id } });
+        await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: userId } });
+        await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: userId } });
 
-        await prisma.dailyPlan.delete({ where: { id } });
+        await prisma.dailyPlan.delete({ where: { id : dailyPlanId } });
 
         return createResponse(200, true, "Daily plan deleted successfully");
       } catch (err: any) {

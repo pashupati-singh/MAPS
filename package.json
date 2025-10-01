@@ -4,10 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/dev.ts",
-    "build": "tsc && tsc-alias && tsc-esm-fix dist",
-    "start": "node dist/index.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "postinstall": "prisma generate"
   },
   "keywords": [],
@@ -27,6 +26,7 @@
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.1",
+    "@types/react": "19.1.16",
     "nodemon": "^3.1.10",
     "prisma": "^6.15.0",
     "ts-node": "^10.9.2",

@@ -1,6 +1,5 @@
-import { gql } from "graphql-tag";
 
-export const UserTypeDefs = gql`
+export const UserTypeDefs = `#graphql
   enum UserRole {
     MR
     ABM

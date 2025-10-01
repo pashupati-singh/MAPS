@@ -1,6 +1,6 @@
-import { gql } from "graphql-tag";
 
-export const DailyPlanTypeDefs = gql`
+
+export const DailyPlanTypeDefs = `#graphql
   type DailyPlan {
     id: Int!
     mrId: Int!
