@@ -90,13 +90,13 @@ export const UserTypeDefs = `#graphql
     data: User
   }
 
-   type UserResponses {
-    code: Int!
-    success: Boolean!
-    message: String
-    data: [User]
-  }
-
+type UserResponses {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: [User]
+  lastPage: Int
+}
   type AuthPayload {
   code: Int!
   success: Boolean!
@@ -123,7 +123,7 @@ input UpdateUserInput {
 
 
   type Query {
-    getUsers: UserResponses!
+    getUsers(page: Int, limit: Int): UserResponses!
     userId (id: Int!): UserResponse!
   }
 

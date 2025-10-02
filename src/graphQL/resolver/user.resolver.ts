@@ -11,18 +11,54 @@ const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
 export const UserResolver = {
      Query: {
-   getUsers: async (_: any, __: any, context: Context) => {
+ getUsers: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
   try {
     if (!context || context.authError) {
-      return createResponse(400, false, context.authError || "Authorization Error");
+      return {
+        code: 400,
+        success: false,
+        message: context?.authError || "Authorization Error",
+        data: [],
+        lastPage: 0
+      };
     }
 
     const companyId = context?.user?.companyId;
-    const users = await prisma.user.findMany({ where: { companyId } });
-    
-    return createResponse(200, true, "Users fetched successfully", users);
+
+    // Defaults
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+    // Count total users in this company
+    const totalUsers = await prisma.user.count({ where: { companyId } });
+
+    // Calculate last page
+    const lastPage = Math.ceil(totalUsers / limit);
+
+    // Fetch paginated users
+    const users = await prisma.user.findMany({
+      where: { companyId },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { id: "asc" } // or createdAt: "desc"
+    });
+
+    return {
+      code: 200,
+      success: true,
+      message: "Users fetched successfully",
+      data: users,
+      lastPage
+    };
+
   } catch (err: any) {
-    return createResponse(500, false, err.message);
+    return {
+      code: 500,
+      success: false,
+      message: err.message,
+      data: [],
+      lastPage: 0
+    };
   }
 },
 
