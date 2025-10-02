@@ -12,24 +12,25 @@ export const ChemistTypeDefs = `#graphql
     titles: [String]
     status: ChemistStatus
     address: Address
-    companies: [ChemistCompany!]!   # company-specific details
+    companies: [ChemistCompany!]!   
     doctors: [Doctor!]
     products: [Product!]
     createdAt: String
     updatedAt: String
   }
 
-  type ChemistCompany {
-    id: Int!
-    chemist: Chemist!
-    company: Company!
-    email: String
-    phone: String
-    dob: String
-    anniversary: String
-    approxTarget: Int
-  }
-
+  type Doctor {
+  id: Int!
+  name: String!
+  titles: [String]
+  status: DoctorStatus
+  address: Address
+  companies: [DoctorCompany!]!
+  chemists: [Chemist!]
+  products: [Product!]
+  createdAt: String
+  updatedAt: String
+}
   type Address {
     id: Int
     address: String
@@ -38,8 +39,8 @@ export const ChemistTypeDefs = `#graphql
     pinCode: String
     country: String
     landmark: String
-    latitude: String
-    longitude: String
+    latitude: Float
+    longitude: Float
   }
 
   input AddressInput {
@@ -56,7 +57,6 @@ export const ChemistTypeDefs = `#graphql
     titles: [String]
     status: ChemistStatus
     address: AddressInput
-    companyId: Int!
     email: String
     phone: String
     dob: String
@@ -65,10 +65,17 @@ export const ChemistTypeDefs = `#graphql
   }
 
   input UpdateChemistInput {
-    name: String
+    chemistId: Int!
+    addressId: Int
+    address: AddressInput
+    name: String 
     titles: [String]
     status: ChemistStatus
-    address: AddressInput
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
   }
 
   input UpdateChemistCompanyInput {
@@ -85,7 +92,7 @@ export const ChemistTypeDefs = `#graphql
     code: Int!
     success: Boolean!
     message: String!
-    chemist: Chemist
+    data: Chemist
   }
 
   type ChemistsResponse {
@@ -122,6 +129,26 @@ export const ChemistTypeDefs = `#graphql
     success: Boolean!
     message: String!
   }
+
+  type ChemistResponseGet {
+    code: Int!
+    success: Boolean!
+    message: String!
+    chemists: [ChemistCompany!]
+    lastPage: Int
+  }
+
+ type ChemistCompany {
+  id: Int!
+  chemist: Chemist!
+  company: Company!
+  doctor: Doctor
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
   input AssignDoctorToChemistInput {
     doctorId: Int!

@@ -1,172 +1,243 @@
 
 
 export const DoctorTypeDefs = `#graphql
-  enum DoctorStatus {
-    ACTIVE
-    INACTIVE
-    SUSPENDED
-  }
+ # ------------------ Enums ------------------
+enum DoctorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
 
-  type Doctor {
-    id: Int!
-    name: String!
-    titles: [String]
-    status: DoctorStatus
-    address: Address
-    companies: [DoctorCompany!]!   # company-specific details
-    chemists: [Chemist!]           # linked chemists
-    products: [Product!]
-    createdAt: String
-    updatedAt: String
-  }
+enum ChemistStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
 
-  type DoctorCompany {
-    id: Int!
-    doctor: Doctor!
-    company: Company!
-    email: String
-    phone: String
-    dob: String
-    anniversary: String
-    approxTarget: Int
-  }
+# ------------------ Types ------------------
 
-  type DoctorChemist {
-    id: Int!
-    doctor: Doctor!
-    chemist: Chemist!
-  }
+scalar JSON
 
-  type Address {
-    id: Int
-    address: String
-    city: String
-    state: String
-    pinCode: String
-    country: String
-    landmark: String
-    latitude: String
-    longitude: String
-  }
+type Product {
+  id: Int!
+  name: String!
+  type: String!
+  salt: String
+  details: JSON
+  companyId: Int!
+  createdAt: String!
+  updatedAt: String!
+}
 
-  # ------------------ Inputs ------------------
+type Chemist {
+  id: Int!
+  name: String!
+  titles: [String]
+  status: ChemistStatus
+  address: Address
+  companies: [ChemistCompany!]!
+  doctors: [Doctor!]
+  products: [Product!]
+  createdAt: String
+  updatedAt: String
+}
 
-  input CreateDoctorInput {
-    name: String!
-    titles: [String]
-    status: DoctorStatus
-    address: AddressInput
-    companyId: Int!
-    email: String
-    phone: String
-    dob: String
-    anniversary: String
-    approxTarget: Int
-  }
+type Doctor {
+  id: Int!
+  name: String!
+  titles: [String]
+  status: DoctorStatus
+  address: Address
+  companies: [DoctorCompany!]!
+  chemists: [Chemist!]
+  products: [Product!]
+  createdAt: String
+  updatedAt: String
+}
 
-  input UpdateDoctorInput {
-    name: String
-    titles: [String]
-    status: DoctorStatus
-    address: AddressInput
-  }
+type DoctorCompany {
+  id: Int!
+  doctor: Doctor!
+  company: Company!
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
-  input UpdateDoctorCompanyInput {
-    doctorId: Int!
-    companyId: Int!
-    email: String
-    phone: String
-    dob: String
-    anniversary: String
-    approxTarget: Int
-  }
+type ChemistCompany {
+  id: Int!
+  chemist: Chemist!
+  company: Company!
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
-  # Assign/Unassign Chemists (bulk)
-  input AssignDoctorToChemistsInput {
-    doctorId: Int!
-    chemistIds: [Int!]!
-  }
+type DoctorChemist {
+  id: Int!
+  doctor: Doctor!
+  chemist: Chemist!
+  company: Company!
+}
 
-  input UnassignDoctorFromChemistsInput {
-    doctorId: Int!
-    chemistIds: [Int!]!
-  }
+type Address {
+  id: Int
+  address: String
+  city: String
+  state: String
+  pinCode: String
+  country: String
+  landmark: String
+  latitude: Float
+  longitude: Float
+}
 
-  # Assign/Unassign Company
-  input AssignDoctorToCompanyInput {
-    doctorId: Int!
-    companyId: Int!
-    email: String
-    phone: String
-    dob: String
-    anniversary: String
-    approxTarget: Int
-  }
+# ------------------ Inputs ------------------
 
-  input UnassignDoctorFromCompanyInput {
-    doctorId: Int!
-    companyId: Int!
-  }
+input AddressInput {
+  address: String
+  city: String
+  state: String
+  pinCode: String
+  country: String
+  landmark: String
+  latitude: Float
+  longitude: Float
+}
 
-  # ------------------ Responses ------------------
+input CreateDoctorInput {
+  name: String!
+  titles: [String]
+  status: DoctorStatus
+  address: AddressInput
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
-  type DoctorResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    doctor: Doctor
-  }
+input UpdateDoctorInput {
+  doctorId: Int!
+  addressId: Int
+  name: String
+  titles: [String]
+  status: DoctorStatus
+  address: AddressInput
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
-  type DoctorsResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    doctors: [Doctor!]
-  }
+input UpdateDoctorCompanyInput {
+  doctorId: Int!
+  companyId: Int!
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
-  type AssignDoctorToChemistsResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    doctorChemists: [DoctorChemist!]
-  }
+input AssignDoctorToChemistsInput {
+  doctorId: Int!
+  chemistIds: [Int!]!
+}
 
-  type UnassignDoctorFromChemistsResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-  }
+input UnassignDoctorFromChemistsInput {
+  doctorId: Int!
+  chemistIds: [Int!]!
+}
 
-  type AssignDoctorToCompanyResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    doctorCompany: DoctorCompany
-  }
+input AssignDoctorToCompanyInput {
+  doctorId: Int!
+  companyId: Int!
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
 
-  type UnassignDoctorFromCompanyResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-  }
+input UnassignDoctorFromCompanyInput {
+  doctorId: Int!
+  companyId: Int!
+}
 
-  # ------------------ Queries & Mutations ------------------
+# ------------------ Responses ------------------
 
-  extend type Query {
-    doctors: DoctorsResponse!
-    doctor(id: ID!): DoctorResponse!
-  }
+type DoctorResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  doctor: Doctor
+}
 
-  extend type Mutation {
-    createDoctor(input: CreateDoctorInput!): DoctorResponse!
-    updateDoctor(input: UpdateDoctorInput!): DoctorResponse!
-    updateDoctorCompany(input: UpdateDoctorCompanyInput!): DoctorCompany
-    deleteDoctor(id: ID!): DoctorResponse!
+type DoctorResponseId {
+  code: Int!
+  success: Boolean!
+  message: String!
+  data: Doctor
+}
 
-    assignDoctorToChemists(input: AssignDoctorToChemistsInput!): AssignDoctorToChemistsResponse!
-    unassignDoctorFromChemists(input: UnassignDoctorFromChemistsInput!): UnassignDoctorFromChemistsResponse!
+type DoctorsResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  doctors: [DoctorCompany!]
+  lastPage: Int
+}
 
-    assignDoctorToCompany(input: AssignDoctorToCompanyInput!): AssignDoctorToCompanyResponse!
-    unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse!
-  }
+type AssignDoctorToChemistsResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  doctorChemists: [DoctorChemist!]
+}
+
+type UnassignDoctorFromChemistsResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+}
+
+type AssignDoctorToCompanyResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  doctorCompany: DoctorCompany
+}
+
+type UnassignDoctorFromCompanyResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+}
+
+# ------------------ Queries & Mutations ------------------
+
+extend type Query {
+  doctors(page: Int, limit: Int): DoctorsResponse!
+  doctor(id: Int!): DoctorResponseId!
+}
+
+extend type Mutation {
+  createDoctor(input: CreateDoctorInput!): DoctorResponse!
+  updateDoctor(input: UpdateDoctorInput!): DoctorResponse!
+  updateDoctorCompany(input: UpdateDoctorCompanyInput!): AssignDoctorToCompanyResponse!
+  deleteDoctor(id: ID!): DoctorResponse!
+
+  assignDoctorToChemists(input: AssignDoctorToChemistsInput!): AssignDoctorToChemistsResponse!
+  unassignDoctorFromChemists(input: UnassignDoctorFromChemistsInput!): UnassignDoctorFromChemistsResponse!
+
+  assignDoctorToCompany(input: AssignDoctorToCompanyInput!): AssignDoctorToCompanyResponse!
+  unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse!
+}
+
 `;

@@ -217,8 +217,8 @@ model DoctorCompany {
 
   email        String?
   phone        String?
-  dob          DateTime?
-  anniversary  DateTime?
+  dob          String?
+  anniversary  String?
   approxTarget Int?
 
   doctor       Doctor  @relation(fields: [doctorId], references: [id])
@@ -234,8 +234,8 @@ model ChemistCompany {
 
   email        String?
   phone        String?
-  dob          DateTime?
-  anniversary  DateTime?
+  dob          String?
+  anniversary  String?
   approxTarget Int?
 
   chemist      Chemist @relation(fields: [chemistId], references: [id])

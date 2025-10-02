@@ -7,19 +7,26 @@ const prisma = new PrismaClient();
 
 export const DoctorResolvers = {
   Query: {
-    doctors: async () => {
+    doctors: async (_: any,args: { page?: number; limit?: number },context: Context) => {
       try {
-        const doctors = await prisma.doctor.findMany({
+        if(!context || context.authError) return createResponse(401, false, "Unauthorized");
+        if(!context.user?.companyId) return createResponse(401, false, "Company not found");
+        const page = args.page && args.page > 0 ? args.page : 1;
+        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+        const totalUsers = await prisma.doctorCompany.count({ where: { companyId : context.user?.companyId } });
+
+        const lastPage = Math.ceil(totalUsers / limit);
+        const doctors = await prisma.doctorCompany.findMany({
+          where : { companyId : context.user?.companyId},
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: { id: "asc" } ,
           include: {
-            address: true,
-            companies: { include: { company: true } },
-            chemists: { include: { chemist: true } },
-            products: true,
+            doctor : { include: { address: true } ,  },
           },
         });
-        return createResponse(200, true, "Doctors fetched successfully", {
-          doctors,
-        });
+        return { code: 200, success: true, message: "Doctors fetched successfully",doctors , lastPage};
       } catch (err: any) {
         return createResponse(500, false, err.message, { doctors: [] });
       }
@@ -41,9 +48,7 @@ export const DoctorResolvers = {
           return createResponse(404, false, "Doctor not found", { doctor: null });
         }
 
-        return createResponse(200, true, "Doctor fetched successfully", {
-          doctor,
-        });
+        return createResponse(200, true, "Doctor fetched successfully", doctor);
       } catch (err: any) {
         return createResponse(500, false, err.message, { doctor: null });
       }
@@ -51,139 +56,184 @@ export const DoctorResolvers = {
   },
 
   Mutation: {
-    createDoctor: async (_: any, { input }: any) => {
-      try {
-        let addressRecord = null;
-        if (input.address) {
-          const fullAddress = [
-            input.address.address,
-            input.address.city,
-            input.address.state,
-            input.address.pinCode,
-            input.address.country,
-            input.address.landmark,
-          ]
-            .filter(Boolean)
-            .join(", ");
+createDoctor: async (_: any, { input }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return { code: 400, success: false, message: context.authError || "Authorization Error", doctor: null };
+    }
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return { code: 400, success: false, message: "Company authorization required", doctor: null };
+    }
 
-          let latitude = null;
-          let longitude = null;
+    let addressId: number | null = null;
+    if (input.address) {
+      const fullAddress = [
+        input.address.address,
+        input.address.city,
+        input.address.state,
+        input.address.pinCode,
+        input.address.country,
+        input.address.landmark,
+      ].filter(Boolean).join(", ");
 
-          try {
-            const coords = await getLatLongFromAddress(fullAddress);
-            latitude = coords.latitude;
-            longitude = coords.longitude;
-          } catch (error: any) {
-            return createResponse(
-              400,
-              false,
-              `Failed to fetch coordinates: ${error.message}`
-            );
-          }
+      let latitude: number | null =
+        input.address.latitude != null ? Number(input.address.latitude) : null;
+      let longitude: number | null =
+        input.address.longitude != null ? Number(input.address.longitude) : null;
 
-          addressRecord = await prisma.address.create({
-            data: { ...input.address, latitude, longitude },
-          });
-        }
+      // try {
+      //   const coords = await getLatLongFromAddress(fullAddress);
+      //   latitude = (coords?.latitude != null ? Number(coords.latitude) : latitude);
+      //   longitude = (coords?.longitude != null ? Number(coords.longitude) : longitude);
+      // } catch (error: any) {
+      //   return {
+      //     code: 400,
+      //     success: false,
+      //     message: `Failed to fetch coordinates: ${error.message}`,
+      //     doctor: null,
+      //   };
+      // }
 
-        const doctor = await prisma.doctor.create({
-          data: {
-            name: input.name,
-            titles: input.titles ?? [],
-            status: input.status || "ACTIVE",
-            addressId: addressRecord ? addressRecord.id : null,
+      const createdAddress = await prisma.address.create({
+        data: {
+          address:  input.address.address  ?? "",
+          city:     input.address.city     ?? "",
+          state:    input.address.state    ?? "",
+          pinCode:  input.address.pinCode  ?? "",
+          country:  input.address.country  ?? "",
+          landmark: input.address.landmark ?? null,
+          latitude: latitude  ?? undefined,   
+          longitude: longitude ?? undefined,  
+        },
+      });
+
+      addressId = createdAddress.id;
+    }
+
+    const doctor = await prisma.doctor.create({
+      data: {
+        name:   input.name,
+        titles: input.titles ?? [],                 
+        status: input.status || "ACTIVE",           
+        addressId,
+        companies: {
+          create: {
+            companyId,
+            email:         input.email        ?? null,
+            phone:         input.phone        ?? null,
+            dob:           input.dob          ?? null,   
+            anniversary:   input.anniversary  ?? null,
+            approxTarget:  input.approxTarget ?? null,
           },
-          include: { address: true },
-        });
+        },
+      },
+      include: {
+        address: true,
+        companies: { include: { company: true } },  
+      },
+    });
 
-        if (input.companyId) {
-          await prisma.doctorCompany.create({
-            data: {
-              doctorId: doctor.id,
-              companyId: input.companyId,
-              email: input.email,
-              phone: input.phone,
-              dob: input.dob ? new Date(input.dob) : null,
-              anniversary: input.anniversary ? new Date(input.anniversary) : null,
-              approxTarget: input.approxTarget,
-            },
-          });
-        }
+    return {
+      code: 201,
+      success: true,
+      message: "Doctor created successfully",
+      doctor,
+    };
+  } catch (err: any) {
+    return { code: 500, success: false, message: err.message, doctor: null };
+  }
+},
+updateDoctor: async (_: any, { input }: any, context: Context) => {
+  try {
+    if(!context || context.authError) return createResponse(401, false, "Unauthorized");
+    if(!context.user?.companyId) return createResponse(401, false, "Company not found");
+    const doctor = await prisma.doctor.findUnique({
+      where: { id: Number(input.doctorId) },
+    });
+    if (!doctor) return createResponse(404, false, "Doctor not found");
 
-        return createResponse(201, true, "Doctor created successfully", {
-          doctor,
+    let addressId = doctor.addressId;
+    if (input.address) {
+      const fullAddress = [
+        input.address.address,
+        input.address.city,
+        input.address.state,
+        input.address.pinCode,
+        input.address.country,
+        input.address.landmark,
+      ].filter(Boolean).join(", ");
+
+      let latitude: number | null = input.address.latitude ?? null;
+      let longitude: number | null = input.address.longitude ?? null;
+
+      // try {
+      //   const coords = await getLatLongFromAddress(fullAddress);
+      //   latitude = coords.latitude || latitude;
+      //   longitude = coords.longitude || longitude;
+      // } catch (error: any) {
+      //   return createResponse(
+      //     400,
+      //     false,
+      //     `Failed to fetch coordinates: ${error.message}`
+      //   );
+      // }
+
+      if (addressId) {
+        await prisma.address.update({
+          where: { id: addressId },
+          data: { ...input.address, latitude, longitude },
         });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
+      } else {
+        const newAddress = await prisma.address.create({
+          data: { ...input.address, latitude, longitude },
+        });
+        addressId = newAddress.id;
       }
-    },
+    }
 
-    updateDoctor: async (_: any, { input }: any) => {
-      try {
-        const doctor = await prisma.doctor.findUnique({
-          where: { id: Number(input.id) },
-        });
-        if (!doctor) return createResponse(404, false, "Doctor not found");
+    await prisma.doctor.update({
+      where: { id: Number(input.doctorId) },
+      data: {
+        name: input.name ?? doctor.name,
+        titles: input.titles ?? doctor.titles,
+        status: input.status ?? doctor.status,
+        addressId,
+      },
+    });
 
-        let addressId = doctor.addressId;
-        if (input.address) {
-          const fullAddress = [
-            input.address.address,
-            input.address.city,
-            input.address.state,
-            input.address.pinCode,
-            input.address.country,
-            input.address.landmark,
-          ]
-            .filter(Boolean)
-            .join(", ");
+    const companyId = context?.user?.companyId;
+    if (companyId) {
+      await prisma.doctorCompany.updateMany({
+        where: { doctorId: Number(input.doctorId), companyId },
+        data: {
+          email: input.email ?? undefined,
+          phone: input.phone ?? undefined,
+          dob: input.dob ?? undefined,
+          anniversary: input.anniversary ?? undefined,
+          approxTarget: input.approxTarget ?? undefined,
+        },
+      });
+    }
+    const doctors = await prisma.doctor.findUnique({
+      where: { id: Number(input.doctorId) },
+      include: {
+        address: true,
+        companies: true,
+      },
+    });
 
-          let latitude: number | null = null;
-          let longitude: number | null = null;
+    return {
+  code: 200,
+  success: true,
+  message: "Doctor updated successfully",
+  doctor: doctors,
+};
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
 
-          try {
-            const coords = await getLatLongFromAddress(fullAddress);
-            latitude = coords.latitude;
-            longitude = coords.longitude;
-          } catch (error: any) {
-            return createResponse(
-              400,
-              false,
-              `Failed to fetch coordinates: ${error.message}`
-            );
-          }
-
-          if (addressId) {
-            await prisma.address.update({
-              where: { id: addressId },
-              data: { ...input.address, latitude, longitude },
-            });
-          } else {
-            const newAddress = await prisma.address.create({
-              data: { ...input.address, latitude, longitude },
-            });
-            addressId = newAddress.id;
-          }
-        }
-
-        const updatedDoctor = await prisma.doctor.update({
-          where: { id: Number(input.id) },
-          data: {
-            name: input.name ?? doctor.name,
-            titles: input.titles ?? doctor.titles,
-            status: input.status ?? doctor.status,
-            addressId,
-          },
-          include: { address: true },
-        });
-
-        return createResponse(200, true, "Doctor updated successfully", {
-          doctor: updatedDoctor,
-        });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
 
     deleteDoctor: async (_: any, { id }: any) => {
       try {
@@ -224,8 +274,8 @@ export const DoctorResolvers = {
           data: {
             email: email ?? doctorCompany.email,
             phone: phone ?? doctorCompany.phone,
-            dob: dob ? new Date(dob) : doctorCompany.dob,
-            anniversary: anniversary ? new Date(anniversary) : doctorCompany.anniversary,
+            dob: input.dob || null,
+            anniversary: input.anniversary || null,
             approxTarget: approxTarget ?? doctorCompany.approxTarget,
           },
         });
@@ -255,8 +305,8 @@ export const DoctorResolvers = {
             companyId,
             email,
             phone,
-            dob: dob ? new Date(dob) : null,
-            anniversary: anniversary ? new Date(anniversary) : null,
+            dob: input.dob || null,
+            anniversary: input.anniversary || null,
             approxTarget,
           },
         });

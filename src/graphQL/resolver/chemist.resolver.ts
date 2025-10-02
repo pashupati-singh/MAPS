@@ -7,23 +7,41 @@ const prisma = new PrismaClient();
 
 export const ChemistResolvers = {
    Query: {
-    chemists: async () => {
+    chemists: async (_: any,args: { page?: number; limit?: number },context: Context) => {
       try {
-        const chemists = await prisma.chemist.findMany({
+        if(!context || context.authError) return createResponse(401, false, "Unauthorized");
+        if(!context.user?.companyId) return createResponse(401, false, "Company not found");
+        const page = args.page && args.page > 0 ? args.page : 1;
+        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+        
+        const totalUsers = await prisma.chemistCompany.count({ where: { companyId : context.user?.companyId } });
+        
+        const lastPage = Math.ceil(totalUsers / limit);
+        const chemists = await prisma.chemistCompany.findMany({
+           where : { companyId : context.user?.companyId},
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: { id: "asc" },
           include: {
-            address: true,
-            companies: {
-              include: { company: true }, // include related company details
+            chemist: {
+              include: {
+                address: true,
+                companies: {
+                  include: { company: true },
+                },
+                doctors: true,
+                products: true,
+              },
             },
-            doctors: true,
-            products: true,
-          },
+          }
         });
+        console.log(chemists);
         return {
           code: 200,
           success: true,
           message: "Chemists fetched successfully",
           chemists,
+          lastPage
         };
       } catch (err: any) {
         return {
@@ -74,88 +92,80 @@ export const ChemistResolvers = {
   },
 
   Mutation: {
-    createChemist: async (_: any, { input }: any) => {
-      try {
-        let addressRecord = null;
-        if (input.address) {
-          const fullAddress = [
-            input.address.address,
-            input.address.city,
-            input.address.state,
-            input.address.pinCode,
-            input.address.country,
-            input.address.landmark,
-          ]
-            .filter(Boolean)
-            .join(", ");
+createChemist: async (_: any, { input }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return { code: 400, success: false, message: context.authError || "Authorization Error", data: null };
+    }
 
-          let latitude = null;
-          let longitude = null;
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return { code: 400, success: false, message: "Company authorization required", data: null };
+    }
 
-          try {
-            const coords = await getLatLongFromAddress(fullAddress);
-            latitude = coords.latitude;
-            longitude = coords.longitude;
-          } catch (error: any) {
-            return createResponse(
-              400,
-              false,
-              `Failed to fetch coordinates: ${error.message}`
-            );
-          }
+    let addressRecord = null;
+    if (input.address) {
+      const fullAddress = [
+        input.address.address,
+        input.address.city,
+        input.address.state,
+        input.address.pinCode,
+        input.address.country,
+        input.address.landmark,
+      ].filter(Boolean).join(", ");
 
-          addressRecord = await prisma.address.create({
-            data: {
-              ...input.address,
-              latitude,
-              longitude,
-            },
-          });
-        }
+      let latitude: number | null =
+        input.address.latitude != null ? Number(input.address.latitude) : null;
+      let longitude: number | null =
+        input.address.longitude != null ? Number(input.address.longitude) : null;
 
-        const chemist = await prisma.chemist.create({
-          data: {
-            name: input.name,
-            titles: input.titles ?? [],
-            status: input.status || "ACTIVE",
-            addressId: addressRecord ? addressRecord.id : null,
+
+      // try {
+      //   const coords = await getLatLongFromAddress(fullAddress);
+      //   latitude = coords.latitude;
+      //   longitude = coords.longitude;
+      // } catch (error: any) {
+      //   return { code: 400, success: false, message: `Failed to fetch coordinates: ${error.message}`, data: null };
+      // }
+
+      addressRecord = await prisma.address.create({
+        data: {
+          ...input.address,
+          latitude,
+          longitude,
+        },
+      });
+    }
+
+    const chemist = await prisma.chemist.create({
+      data: {
+        name: input.name,
+        titles: input.titles ?? [],
+        status: input.status || "ACTIVE",
+        addressId: addressRecord ? addressRecord.id : null,
+        companies: {
+          create: {
+            companyId,
+            email: input.email ?? null,
+            phone: input.phone ?? null,
+            dob: input.dob ?? null,
+            anniversary: input.anniversary ?? null,
+            approxTarget: input.approxTarget ?? null,
           },
-          include: { address: true },
-        });
+        },
+      },
+      include: {
+        address: true,
+        companies: { include: { company: true } },
+      },
+    });
 
-        if (input.companyId) {
-          await prisma.chemistCompany.create({
-            data: {
-              chemistId: chemist.id,
-              companyId: input.companyId,
-              email: input.email,
-              phone: input.phone,
-              dob: input.dob ? new Date(input.dob) : null,
-              anniversary: input.anniversary ? new Date(input.anniversary) : null,
-              approxTarget: input.approxTarget,
-            },
-          });
-        }
-
-        if (input.doctorId) {
-          await prisma.doctorChemist.create({
-            data: {
-              chemistId: chemist.id,
-              doctorId: input.doctorId,
-              companyId: input.companyId,
-            },
-          });
-        }
-
-        return createResponse(201, true, "Chemist created successfully", {
-          chemist,
-        });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
-
-    assignChemistToCompany: async (_: any, { input }: any) => {
+    return { code: 201, success: true, message: "Chemist created successfully", data: chemist };
+  } catch (err: any) {
+    return { code: 500, success: false, message: err.message, data: null };
+  }
+},
+  assignChemistToCompany: async (_: any, { input }: any) => {
       try {
         const { chemistId, companyId, email, phone, dob, anniversary, approxTarget } = input;
 
@@ -177,8 +187,8 @@ export const ChemistResolvers = {
             companyId,
             email,
             phone,
-            dob: dob ? new Date(dob) : null,
-            anniversary: anniversary ? new Date(anniversary) : null,
+            dob: dob || null,
+            anniversary: anniversary|| null,
             approxTarget,
           },
         });
@@ -221,10 +231,19 @@ export const ChemistResolvers = {
       }
     },
 
-    updateChemist: async (_: any, { input }: any) => {
+    updateChemist: async (_: any, { input }: any, context:Context) => {
       try {
+        if (!context || context.authError) {
+      return { code: 400, success: false, message: context.authError || "Authorization Error", data: null };
+    }
+
+     const companyId = context.user?.companyId;
+     if (!companyId) {
+       return { code: 400, success: false, message: "Company authorization required", data: null };
+     }
+
         const chemist = await prisma.chemist.findUnique({
-          where: { id: Number(input.id) },
+          where: { id: Number(input.chemistId) },
         });
         if (!chemist) return createResponse(404, false, "Chemist not found");
 
@@ -242,20 +261,20 @@ export const ChemistResolvers = {
             .filter(Boolean)
             .join(", ");
 
-          let latitude: number | null = null;
-          let longitude: number | null = null;
+         let latitude: number | null = input.address.latitude ?? null;
+      let longitude: number | null = input.address.longitude ?? null;
 
-          try {
-            const coords = await getLatLongFromAddress(fullAddress);
-            latitude = coords.latitude;
-            longitude = coords.longitude;
-          } catch (error: any) {
-            return createResponse(
-              400,
-              false,
-              `Failed to fetch coordinates: ${error.message}`
-            );
-          }
+          // try {
+          //   const coords = await getLatLongFromAddress(fullAddress);
+          //   latitude = coords.latitude;
+          //   longitude = coords.longitude;
+          // } catch (error: any) {
+          //   return createResponse(
+          //     400,
+          //     false,
+          //     `Failed to fetch coordinates: ${error.message}`
+          //   );
+          // }
 
           if (addressId) {
             await prisma.address.update({
@@ -271,7 +290,7 @@ export const ChemistResolvers = {
         }
 
         const updatedChemist = await prisma.chemist.update({
-          where: { id: Number(input.id) },
+          where: { id: Number(input.chemistId) },
           data: {
             name: input.name ?? chemist.name,
             titles: input.titles ?? chemist.titles,
@@ -281,9 +300,28 @@ export const ChemistResolvers = {
           include: { address: true },
         });
 
-        return createResponse(200, true, "Chemist updated successfully", {
-          chemist: updatedChemist,
-        });
+    if (companyId) {
+      await prisma.chemistCompany.updateMany({
+        where: { chemistId: Number(input.chemistId), companyId },
+        data: {
+          email: input.email ?? undefined,
+          phone: input.phone ?? undefined,
+          dob: input.dob ?? undefined,
+          anniversary: input.anniversary ?? undefined,
+          approxTarget: input.approxTarget ?? undefined,
+        },
+      });
+    }
+    const chemists = await prisma.chemist.findUnique({
+      where: { id: Number(input.chemistId) },
+      include: {
+        address: true,
+        companies: true,
+      },
+    });
+
+
+        return { code: 200, success: true, message: "Chemist updated successfully", data: chemists};
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
@@ -306,8 +344,8 @@ export const ChemistResolvers = {
           data: {
             email: email ?? chemistCompany.email,
             phone: phone ?? chemistCompany.phone,
-            dob: dob ? new Date(dob) : chemistCompany.dob,
-            anniversary: anniversary ? new Date(anniversary) : chemistCompany.anniversary,
+            dob: dob || chemistCompany.dob,
+            anniversary: anniversary || chemistCompany.anniversary,
             approxTarget: approxTarget ?? chemistCompany.approxTarget,
           },
         });

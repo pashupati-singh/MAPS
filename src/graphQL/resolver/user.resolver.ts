@@ -24,23 +24,18 @@ export const UserResolver = {
     }
 
     const companyId = context?.user?.companyId;
-
-    // Defaults
     const page = args.page && args.page > 0 ? args.page : 1;
     const limit = args.limit && args.limit > 0 ? args.limit : 10;
 
-    // Count total users in this company
     const totalUsers = await prisma.user.count({ where: { companyId } });
 
-    // Calculate last page
     const lastPage = Math.ceil(totalUsers / limit);
 
-    // Fetch paginated users
     const users = await prisma.user.findMany({
       where: { companyId },
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { id: "asc" } // or createdAt: "desc"
+      orderBy: { id: "asc" } 
     });
 
     return {
