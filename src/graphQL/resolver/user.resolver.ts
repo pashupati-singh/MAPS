@@ -11,17 +11,21 @@ const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
 export const UserResolver = {
      Query: {
-    getUser: async (_: any, { companyId }: { companyId: number }) => {
-      try {
-        if (!companyId) {
-          return createResponse(400, false, "Company ID is required");
-        }
-        const users = await prisma.user.findMany({ where: { companyId } });
-        return createResponse(200, true, "Users fetched successfully", { users });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+   getUsers: async (_: any, __: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    }
+
+    const companyId = context?.user?.companyId;
+    const users = await prisma.user.findMany({ where: { companyId } });
+    
+    return createResponse(200, true, "Users fetched successfully", users);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     userId: async (_: any, { id }: { id: number }) => {
       try {
@@ -43,7 +47,7 @@ export const UserResolver = {
         if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
 
         const companyId = context?.user?.companyId;
-        const { email, phone, password, role } = data;
+        const { email, phone, password, role , joiningDate } = data;
 
         if (!companyId) return createResponse(400, false, "Company ID is required");
         if (!email) return createResponse(400, false, "Email is required");
@@ -73,6 +77,7 @@ export const UserResolver = {
             role,
             status: "ACTIVE",
             mpin: null,
+            joiningDate,
             isEmailVerified: false,
             isPhoneVerified: false,
             phoneVerificationCode: otp,
@@ -87,6 +92,35 @@ export const UserResolver = {
         return createResponse(500, false, err.message);
       }
     },
+
+    updateUser: async (_: any, { data }: { data: any }, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    } 
+    console.log(data);
+
+    const loggedInUser = context.user;
+    let targetUserId = context?.user?.userId || data.id;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: targetUserId, companyId: loggedInUser?.companyId },
+      data: {
+        name: data.name ?? undefined,
+        phone: data.phone ?? undefined,
+        division: data.division ?? undefined,
+        status: data.status ?? undefined,
+        role: data.role ?? undefined,
+        joiningDate: data.joiningDate ?? undefined
+      },
+    });
+
+    return createResponse(200, true, "User updated successfully", updatedUser);
+
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
 
     setMpin: async (_: any, { mpin }: any , context: Context) => {
       try {

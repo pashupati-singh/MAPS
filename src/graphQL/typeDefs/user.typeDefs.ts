@@ -66,6 +66,9 @@ export const UserTypeDefs = `#graphql
     email: String!
     phone: String!
     role: UserRole!
+    name : String
+    division: String
+    joiningDate: String
     status: UserStatus!
     company : Company
     createdAt: String!
@@ -73,10 +76,10 @@ export const UserTypeDefs = `#graphql
   }
 
   input CreateUserInput {
-    companyId: Int!
     email: String!
     phone: String!
     password: String!
+    joiningDate: String
     role: UserRole!
   }
 
@@ -85,6 +88,13 @@ export const UserTypeDefs = `#graphql
     success: Boolean!
     message: String
     data: User
+  }
+
+   type UserResponses {
+    code: Int!
+    success: Boolean!
+    message: String
+    data: [User]
   }
 
   type AuthPayload {
@@ -101,13 +111,25 @@ export const UserTypeDefs = `#graphql
   mrIds: [Int!]!
 }
 
+input UpdateUserInput {
+  id: Int
+  name: String
+  phone: String
+  division: String
+  status: UserStatus
+  role: UserRole
+  joiningDate: String
+}
+
+
   type Query {
-    getUser(companyId: Int!): UserResponse!
+    getUsers: UserResponses!
     userId (id: Int!): UserResponse!
   }
 
   type Mutation {
     createUser(data: CreateUserInput!): UserResponse!
+    updateUser(data: UpdateUserInput!): UserResponse!
     setMpin( mpin: String!): UserResponse!
     verifyMpin(userId: Int!, mpin: String!): AuthPayload!
     resendOtp(email: String, phone: String, type: String!): UserResponse!

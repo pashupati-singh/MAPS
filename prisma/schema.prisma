@@ -117,11 +117,14 @@ model User {
   company                   Company   @relation(fields: [companyId], references: [id])
   email                     String    @unique
   phone                     String    @unique
+  name                      String?
+  division                  String?     
   isEmailVerified           Boolean   @default(false)
   isPhoneVerified           Boolean   @default(false)
   password                  String
   role                      UserRole
   status                    UserStatus @default(ACTIVE)
+  joiningDate               String?
 
   phoneVerificationCode     String?
   phoneVerificationExpiry   DateTime?
