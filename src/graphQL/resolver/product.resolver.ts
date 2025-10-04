@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export const ChemistResolvers = {
+export const ProductResolvers = {
 Query: {
     getProductById: async (_: any, { productId }: any, context: Context) => {
       try {
@@ -29,21 +29,31 @@ Query: {
     },
 
     getProductsByCompany: async (_: any, __: any, context: Context) => {
-      try {
-        if (!context || context.authError)
-          return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id)
-          return createResponse(400, false, "Company authorization required");
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    }
+    if (!context?.user?.companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
 
-        const products = await prisma.product.findMany({
-          where: { companyId: context.company.id },
-        });
+    const companyId = context?.user?.companyId;
 
-        return createResponse(200, true, "Products fetched successfully", { products });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    const products = await prisma.product.findMany({
+      where: { companyId },
+    });
+
+   return {
+  code: 200,
+  success: true,
+  message: "Products fetched successfully",
+  product: products,
+};
+  } catch (err: any) {
+    return createResponse(500, false, err.message, { product: [] });
+  }
+},
+
 
     getProductsByDoctor: async (_: any, { doctorId }: any, context: Context) => {
       try {
@@ -53,7 +63,7 @@ Query: {
           return createResponse(400, false, "Company authorization required");
 
         const doctorProducts = await prisma.doctorProduct.findMany({
-          where: { doctorId, companyId: context.company.id },
+          where: { doctorCompanyId : doctorId, companyId: context.company.id },
           include: { product: true },
         });
 
@@ -89,71 +99,85 @@ Query: {
     createProduct: async (_: any, { input }: any , context : Context) => {
       try {
         if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id) return createResponse(400, false, "Company authorization required");
-
+        if (!context?.user?.companyId) return createResponse(400, false, "Company authorization required");
+        const companyId = context?.user?.companyId
         if (!input.name) return createResponse(400, false, "Name is required");
         if (!input.type) return createResponse(400, false, "Type is required");
 
-        const product = await prisma.product.create({
+         const existingProduct = await prisma.product.findFirst({
+      where: {
+        name: input.name,
+        type: input.type,
+        salt: input.salt,
+        companyId,
+      },
+    });
+
+    if (existingProduct) {
+      return createResponse(400, false, "Product already exists with the same name, type, and salt in this company.");
+    }
+      await prisma.product.create({
           data: {
             name: input.name,
             type: input.type,
             salt: input.salt,
             details: input.details,
-            companyId: context.company.id
+            companyId,
           },
         });
-        return createResponse(201, true, "Product created successfully", { product });
+        return createResponse(201, true, "Product created successfully");
       } catch (err : any) {
         return createResponse(500, false, err.message);
       }
     },
-    assignProductToDoctor: async (_: any, { input }: any , context : Context) => {
-      try {
-        if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id) return createResponse(400, false, "Company authorization required");
-        const {id} = context.company
-        const { doctorId, productId } = input;
-        const existing = await prisma.doctorProduct.findFirst({
-          where: { doctorId, productId , companyId : id},
-        });
+assignProductToDoctor: async (_: any, { input }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    }
+    if (!context.user?.companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
 
-        if (existing) {
-          return createResponse(400, false, "Product already assigned to this doctor");
-        }
+    const companyId = context.user.companyId;
+    const { doctorCompanyId, productIds } = input;
 
-        const doctorProduct = await prisma.doctorProduct.create({
-          data: { doctorId, productId , companyId : id},
-        });
+    const existingLinks = await prisma.doctorProduct.findMany({
+      where: {
+        doctorCompanyId,
+        productId: { in: productIds },
+        companyId,
+      },
+    });
 
-        return createResponse(201, true, "Product assigned to doctor successfully", { doctorProduct });
-      } catch (err : any) {
-        return createResponse(500, false, err.message);
-      }
-    },
-    assignProductToChemist: async (_: any, { input }: any , context : Context) => {
-      try {
-        if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id) return createResponse(400, false, "Company authorization required");
-        const {id} = context.company
-        const { chemistId, productId } = input;
-        const existing = await prisma.chemistProduct.findFirst({
-          where: { chemistId, productId , companyId : id},
-        });
+    const alreadyAssignedIds = existingLinks.map((e) => e.productId);
 
-        if (existing) {
-          return createResponse(400, false, "Product already assigned to this chemist");
-        }
+    const newProductIds = productIds.filter((id: number) => !alreadyAssignedIds.includes(id));
 
-        const chemistProduct = await prisma.chemistProduct.create({
-          data: { chemistId, productId , companyId : id},
-        });
+    const createdLinks = await prisma.$transaction(
+      newProductIds.map((productId: number) =>
+        prisma.doctorProduct.create({
+          data: {
+            doctorCompanyId,
+            productId,
+            companyId,
+          },
+        })
+      )
+    );
 
-        return createResponse(201, true, "Product assigned to chemist successfully", { chemistProduct });
-      } catch (err : any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    return {
+      code: 201,
+      success: true,
+      message: "Products assigned successfully",
+      created: createdLinks,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
+   
     updateProduct: async (_: any, { id, input }: any, context: Context) => {
       try {
         if (!context || context.authError)
@@ -188,7 +212,7 @@ Query: {
           return createResponse(400, false, "Company authorization required");
 
         const deleted = await prisma.doctorProduct.deleteMany({
-          where: { doctorId, productId, companyId: context.company.id },
+          where: { doctorCompanyId: doctorId, productId, companyId: context.company.id },
         });
 
         if (deleted.count === 0)

@@ -32,9 +32,10 @@ input CreateProductInput {
 }
 
 input AssignProductToDoctorInput {
-  doctorId: Int!
-  productId: Int!
+  doctorCompanyId: Int!
+  productIds: [Int!]!   
 }
+
 
 input AssignProductToChemistInput {
   chemistId: Int!
@@ -45,14 +46,14 @@ type ProductResponse {
   code: Int!
   success: Boolean!
   message: String!
-  product: Product
+  product: [Product!]
 }
 
 type AssignProductToDoctorResponse {
   code: Int!
   success: Boolean!
   message: String!
-  doctorProduct: DoctorProduct
+  created: DoctorProduct
 }
 
 type AssignProductToChemistResponse {
@@ -75,7 +76,7 @@ type Product {
 
 type DoctorProduct {
   id: Int!
-  doctorId: Int!
+  doctorCompanyId: Int!
   productId: Int!
   assignedAt: String!
 }

@@ -35,14 +35,12 @@ model Company {
   subscriptionEnd         DateTime?
   createdAt               DateTime          @default(now())
   updatedAt               DateTime          @updatedAt
-
   ChemistCompany          ChemistCompany[]
-  doctorCompany           DoctorCompany[]
-
-  doctorChemists          DoctorChemist[]
   chemistProduct          ChemistProduct[]
-  doctorProduct           DoctorProduct[]
   dailyPlan               DailyPlan[]
+  doctorChemists          DoctorChemist[]
+  doctorCompany           DoctorCompany[]
+  doctorProduct           DoctorProduct[]
   expense                 Expense[]
   product                 Product[]
   productTarget           ProductTarget[]
@@ -124,7 +122,6 @@ model Doctor {
   dailyPlans       DailyPlanDoctor[]
   address          Address?          @relation(fields: [addressId], references: [id])
   companies        DoctorCompany[]
-  products         DoctorProduct[]
   sale             Sale[]
   stocks           Stock[]
   target           Target[]
@@ -160,6 +157,7 @@ model DoctorCompany {
   doctorChemist DoctorChemist[]
   company       Company         @relation(fields: [companyId], references: [id])
   doctor        Doctor          @relation(fields: [doctorId], references: [id])
+  DoctorProduct DoctorProduct[]
 
   @@unique([doctorId, companyId])
 }
@@ -208,14 +206,14 @@ model Product {
 }
 
 model DoctorProduct {
-  id         Int      @id @default(autoincrement())
-  doctorId   Int
-  productId  Int
-  companyId  Int
-  assignedAt DateTime @default(now())
-  company    Company  @relation(fields: [companyId], references: [id])
-  doctor     Doctor   @relation(fields: [doctorId], references: [id])
-  product    Product  @relation(fields: [productId], references: [id])
+  id              Int            @id @default(autoincrement())
+  productId       Int
+  companyId       Int
+  assignedAt      DateTime       @default(now())
+  doctorCompanyId Int?
+  company         Company        @relation(fields: [companyId], references: [id])
+  DoctorCompany   DoctorCompany? @relation(fields: [doctorCompanyId], references: [id], onDelete: Cascade)
+  product         Product        @relation(fields: [productId], references: [id])
 }
 
 model ChemistProduct {
