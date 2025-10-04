@@ -6,31 +6,6 @@ export const ChemistTypeDefs = `#graphql
     SUSPENDED
   }
 
-  type Chemist {
-    id: Int!
-    name: String!
-    titles: [String]
-    status: ChemistStatus
-    address: Address
-    companies: [ChemistCompany!]!   
-    doctors: [Doctor!]
-    products: [Product!]
-    createdAt: String
-    updatedAt: String
-  }
-
-  type Doctor {
-  id: Int!
-  name: String!
-  titles: [String]
-  status: DoctorStatus
-  address: Address
-  companies: [DoctorCompany!]!
-  chemists: [Chemist!]
-  products: [Product!]
-  createdAt: String
-  updatedAt: String
-}
   type Address {
     id: Int
     address: String
@@ -43,6 +18,89 @@ export const ChemistTypeDefs = `#graphql
     longitude: Float
   }
 
+  type Chemist {
+    id: Int!
+    name: String!
+    titles: [String]
+    status: ChemistStatus
+    address: Address
+    createdAt: String
+    updatedAt: String
+  }
+
+type Doctor {
+  id: Int!
+  name: String!
+  titles: [String]
+  status: DoctorStatus
+  address: Address
+  createdAt: String
+  updatedAt: String
+}
+
+  type DoctorCompany {
+    id: Int!
+    doctor: Doctor
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
+
+type DoctorChemist {
+  id: Int!
+  doctorCompany: DoctorCompany!
+}
+
+
+ type ChemistCompany {
+  id: Int!
+  chemist: Chemist!
+  doctorChemist: [DoctorChemist!]
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
+
+# ------------------------------------------------------------------------------------
+
+  type ChemistResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+    data: Chemist
+  }
+
+  type ChemistsResponse {
+    code: Int!
+    success: Boolean!
+    message: String!
+    chemists: [ChemistCompany!]
+    lastPage: Int
+  }
+
+  type ChemistResponseGet {
+    code: Int!
+    success: Boolean!
+    message: String!
+    chemists: ChemistCompany!
+  }
+
+# -------------------------------------------------------------------------------
+
+  input UpdateChemistCompanyInput {
+    chemistCompanyId: Int!
+    email: String
+    phone: String
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
+
+  
   input AddressInput {
     address: String
     city: String
@@ -78,33 +136,11 @@ export const ChemistTypeDefs = `#graphql
     approxTarget: Int
   }
 
-  input UpdateChemistCompanyInput {
-    chemistId: Int!
-    companyId: Int!
-    email: String
-    phone: String
-    dob: String
-    anniversary: String
-    approxTarget: Int
-  }
 
-  type ChemistResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    data: Chemist
-  }
-
-  type ChemistsResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    chemists: [Chemist!]
-  }
+  # --------------------------------------------------------------------------------
 
   input AssignChemistToCompanyInput {
     chemistId: Int!
-    companyId: Int!
     email: String
     phone: String
     dob: String
@@ -119,10 +155,9 @@ export const ChemistTypeDefs = `#graphql
     chemistCompany: ChemistCompany
   }
 
-  input UnassignChemistFromCompanyInput {
-    chemistId: Int!
-    companyId: Int!
-  }
+input UnassignChemistFromCompanyInput {
+  chemistIds: [Int!]!
+}
 
   type UnassignChemistFromCompanyResponse {
     code: Int!
@@ -130,62 +165,47 @@ export const ChemistTypeDefs = `#graphql
     message: String!
   }
 
-  type ChemistResponseGet {
-    code: Int!
-    success: Boolean!
-    message: String!
-    chemists: [ChemistCompany!]
-    lastPage: Int
-  }
 
- type ChemistCompany {
-  id: Int!
-  chemist: Chemist!
-  company: Company!
-  doctor: Doctor
-  email: String
-  phone: String
-  dob: String
-  anniversary: String
-  approxTarget: Int
+
+# ---------------------------------------------------------------------------------------------------------------------
+
+input AssignDoctorToChemistInput {
+  doctorCompanyId: Int!
+  chemistCompanyIds: [Int!]!
 }
 
-  input AssignDoctorToChemistInput {
-    doctorId: Int!
-    chemistId: Int!
-  }
+type AssignDoctorToChemistResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+  created: [DoctorChemist]
+}
 
-  type AssignDoctorToChemistResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-    doctorChemist: DoctorChemist
-  }
+input UnassignDoctorFromChemistInput {
+  doctorChemistIds: [Int!]!
+}
 
-  input UnassignDoctorFromChemistInput {
-    doctorId: Int!
-    chemistId: Int!
-  }
+type UnassignDoctorFromChemistResponse {
+  code: Int!
+  success: Boolean!
+  message: String!
+}
 
-  type UnassignDoctorFromChemistResponse {
-    code: Int!
-    success: Boolean!
-    message: String!
-  }
+# -----------------------------------------------------------------------------
 
   extend type Query {
-    chemists: ChemistsResponse!
-    chemist(id: ID!): ChemistResponse!
+    chemists(page : Int, limit : Int): ChemistsResponse!
+    chemist(id: Int!): ChemistResponseGet!
   }
 
   extend type Mutation {
     createChemist(input: CreateChemistInput!): ChemistResponse!
     updateChemist(input: UpdateChemistInput!): ChemistResponse!
-    updateChemistCompany(input: UpdateChemistCompanyInput!): AssignChemistToCompanyResponse
-    deleteChemist(id: ID!): ChemistResponse!
     assignChemistToCompany(input: AssignChemistToCompanyInput!): AssignChemistToCompanyResponse
     unassignChemistFromCompany(input: UnassignChemistFromCompanyInput!): UnassignChemistFromCompanyResponse
     assignDoctorToChemist(input: AssignDoctorToChemistInput!): AssignDoctorToChemistResponse
     unassignDoctorFromChemist(input: UnassignDoctorFromChemistInput!): UnassignDoctorFromChemistResponse
+    updateChemistCompanyWithCheComId(input: UpdateChemistCompanyInput!): AssignChemistToCompanyResponse
+    deleteChemist(id: ID!): ChemistResponse!
   }
 `;

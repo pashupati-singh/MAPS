@@ -35,9 +35,6 @@ type Chemist {
   titles: [String]
   status: ChemistStatus
   address: Address
-  companies: [ChemistCompany!]!
-  doctors: [Doctor!]
-  products: [Product!]
   createdAt: String
   updatedAt: String
 }
@@ -48,17 +45,14 @@ type Doctor {
   titles: [String]
   status: DoctorStatus
   address: Address
-  companies: [DoctorCompany!]!
-  chemists: [Chemist!]
-  products: [Product!]
   createdAt: String
   updatedAt: String
 }
 
 type DoctorCompany {
   id: Int!
-  doctor: Doctor!
-  company: Company!
+  doctor: Doctor!               
+  doctorChemist: [DoctorChemist!]
   email: String
   phone: String
   dob: String
@@ -69,7 +63,6 @@ type DoctorCompany {
 type ChemistCompany {
   id: Int!
   chemist: Chemist!
-  company: Company!
   email: String
   phone: String
   dob: String
@@ -79,9 +72,7 @@ type ChemistCompany {
 
 type DoctorChemist {
   id: Int!
-  doctor: Doctor!
-  chemist: Chemist!
-  company: Company!
+  chemistCompany: ChemistCompany!
 }
 
 type Address {
@@ -136,23 +127,12 @@ input UpdateDoctorInput {
 }
 
 input UpdateDoctorCompanyInput {
-  doctorId: Int!
-  companyId: Int!
+  doctorCompanyId: Int!
   email: String
   phone: String
   dob: String
   anniversary: String
   approxTarget: Int
-}
-
-input AssignDoctorToChemistsInput {
-  doctorId: Int!
-  chemistIds: [Int!]!
-}
-
-input UnassignDoctorFromChemistsInput {
-  doctorId: Int!
-  chemistIds: [Int!]!
 }
 
 input AssignDoctorToCompanyInput {
@@ -183,7 +163,7 @@ type DoctorResponseId {
   code: Int!
   success: Boolean!
   message: String!
-  data: Doctor
+  data: DoctorCompany!
 }
 
 type DoctorsResponse {
@@ -194,18 +174,8 @@ type DoctorsResponse {
   lastPage: Int
 }
 
-type AssignDoctorToChemistsResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-  doctorChemists: [DoctorChemist!]
-}
+# ---------------------------------------------------------------------
 
-type UnassignDoctorFromChemistsResponse {
-  code: Int!
-  success: Boolean!
-  message: String!
-}
 
 type AssignDoctorToCompanyResponse {
   code: Int!
@@ -230,12 +200,7 @@ extend type Query {
 extend type Mutation {
   createDoctor(input: CreateDoctorInput!): DoctorResponse!
   updateDoctor(input: UpdateDoctorInput!): DoctorResponse!
-  updateDoctorCompany(input: UpdateDoctorCompanyInput!): AssignDoctorToCompanyResponse!
-  deleteDoctor(id: ID!): DoctorResponse!
-
-  assignDoctorToChemists(input: AssignDoctorToChemistsInput!): AssignDoctorToChemistsResponse!
-  unassignDoctorFromChemists(input: UnassignDoctorFromChemistsInput!): UnassignDoctorFromChemistsResponse!
-
+  updateDoctorCompanyWithDocComId(input: UpdateDoctorCompanyInput!): AssignDoctorToCompanyResponse!
   assignDoctorToCompany(input: AssignDoctorToCompanyInput!): AssignDoctorToCompanyResponse!
   unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse!
 }

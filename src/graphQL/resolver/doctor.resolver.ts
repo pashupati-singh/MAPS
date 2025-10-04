@@ -7,52 +7,93 @@ const prisma = new PrismaClient();
 
 export const DoctorResolvers = {
   Query: {
-    doctors: async (_: any,args: { page?: number; limit?: number },context: Context) => {
-      try {
-        if(!context || context.authError) return createResponse(401, false, "Unauthorized");
-        if(!context.user?.companyId) return createResponse(401, false, "Company not found");
-        const page = args.page && args.page > 0 ? args.page : 1;
-        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+   doctors: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(401, false, "Unauthorized");
+    }
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return createResponse(401, false, "Company not found");
+    }
 
-        const totalUsers = await prisma.doctorCompany.count({ where: { companyId : context.user?.companyId } });
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
 
-        const lastPage = Math.ceil(totalUsers / limit);
-        const doctors = await prisma.doctorCompany.findMany({
-          where : { companyId : context.user?.companyId},
-          skip: (page - 1) * limit,
-          take: limit,
-          orderBy: { id: "asc" } ,
-          include: {
-            doctor : { include: { address: true } ,  },
-          },
-        });
-        return { code: 200, success: true, message: "Doctors fetched successfully",doctors , lastPage};
-      } catch (err: any) {
-        return createResponse(500, false, err.message, { doctors: [] });
-      }
-    },
+    const totalDoctors = await prisma.doctorCompany.count({
+      where: { companyId },
+    });
 
-    doctor: async (_: any, { id }: any) => {
-      try {
-        const doctor = await prisma.doctor.findUnique({
-          where: { id: Number(id) },
-          include: {
-            address: true,
-            companies: { include: { company: true } },
-            chemists: { include: { chemist: true } },
-            products: true,
-          },
-        });
+    const lastPage = Math.ceil(totalDoctors / limit);
 
-        if (!doctor) {
-          return createResponse(404, false, "Doctor not found", { doctor: null });
+    const doctors = await prisma.doctorCompany.findMany({
+      where: { companyId },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { id: "asc" },
+      include: {
+        doctor: { include: { address: true } },
+          doctorChemist: {
+            include: {
+              chemistCompany: {
+                include: { chemist: { include: { address: true } } }
         }
-
-        return createResponse(200, true, "Doctor fetched successfully", doctor);
-      } catch (err: any) {
-        return createResponse(500, false, err.message, { doctor: null });
       }
-    },
+    }
+  }
+    });
+
+    return {
+      code: 200,
+      success: true,
+      message: "Doctors fetched successfully",
+      doctors,
+      lastPage,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message, { doctors: [] });
+  }
+},
+
+  doctor: async (_: any, { id }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(401, false, "Unauthorized");
+    }
+
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return createResponse(401, false, "Company not found");
+    }
+
+    const doctorCompany = await prisma.doctorCompany.findFirst({
+      where: { id: Number(id), companyId },
+     include: {
+      doctor: { include: { address: true } },
+       doctorChemist: {
+       include: {
+        chemistCompany: {
+          include: { chemist: { include: { address: true } } }
+        }
+      }
+    }
+  }
+    });
+
+    if (!doctorCompany) {
+      return createResponse(404, false, "Doctor not found", { data: null });
+    }
+
+    return {
+      code: 200,
+      success: true,
+      message: "Doctor fetched successfully",
+      data: doctorCompany,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message, { data: null });
+  }
+},
   },
 
   Mutation: {
@@ -235,89 +276,116 @@ updateDoctor: async (_: any, { input }: any, context: Context) => {
 },
 
 
-    deleteDoctor: async (_: any, { id }: any) => {
-      try {
-        const doctor = await prisma.doctor.findUnique({ where: { id: Number(id) } });
-        if (!doctor) {
-          return createResponse(404, false, "Doctor not found", { doctor: null });
-        }
+  updateDoctorCompanyWithDocComId: async (_: any, { input }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(401, false, "Unauthorized");
+    }
+    if (!context.user?.companyId) {
+      return createResponse(401, false, "Company not found");
+    }
 
-        await prisma.doctorCompany.deleteMany({ where: { doctorId: doctor.id } });
-        await prisma.doctorChemist.deleteMany({ where: { doctorId: doctor.id } });
+    const companyId = context.user.companyId;
+    const { doctorCompanyId, email, phone, dob, anniversary, approxTarget } = input;
 
-        const deletedDoctor = await prisma.doctor.delete({
-          where: { id: Number(id) },
-          include: { address: true },
-        });
+    const doctorCompany = await prisma.doctorCompany.findFirst({
+      where: { id: doctorCompanyId, companyId },
+    });
 
-        return createResponse(200, true, "Doctor deleted successfully", {
-          doctor: deletedDoctor,
-        });
-      } catch (err: any) {
-        return createResponse(500, false, err.message, { doctor: null });
-      }
-    },
+    if (!doctorCompany) {
+      return createResponse(404, false, "DoctorCompany link not found");
+    }
 
-    updateDoctorCompany: async (_: any, { input }: any) => {
-      try {
-        const { doctorId, companyId, email, phone, dob, anniversary, approxTarget } = input;
-
-        const doctorCompany = await prisma.doctorCompany.findFirst({
-          where: { doctorId, companyId },
-        });
-        if (!doctorCompany) {
-          return createResponse(404, false, "DoctorCompany link not found");
-        }
-
-        const updatedDoctorCompany = await prisma.doctorCompany.update({
-          where: { id: doctorCompany.id },
-          data: {
-            email: email ?? doctorCompany.email,
-            phone: phone ?? doctorCompany.phone,
-            dob: input.dob || null,
-            anniversary: input.anniversary || null,
-            approxTarget: approxTarget ?? doctorCompany.approxTarget,
+    const updatedDoctorCompany = await prisma.doctorCompany.update({
+      where: { id: doctorCompanyId },
+      data: {
+        email: email ?? doctorCompany.email,
+        phone: phone ?? doctorCompany.phone,
+        dob: dob || null,
+        anniversary: anniversary || null,
+        approxTarget: approxTarget ?? doctorCompany.approxTarget,
+      },
+      include: {
+        doctor: { include: { address: true } },   
+        doctorChemist: {
+          include: {
+            chemistCompany: {
+              include: {
+                chemist: { include: { address: true } },
+              },
+            },
           },
-        });
+        },
+      },
+    });
 
-        return createResponse(200, true, "DoctorCompany updated successfully", {
-          doctorCompany: updatedDoctorCompany,
-        });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    return {
+      code: 200,
+      success: true,
+      message: "DoctorCompany updated successfully",
+      doctorCompany: updatedDoctorCompany,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
 
-    assignDoctorToCompany: async (_: any, { input }: any) => {
-      try {
-        const { doctorId, companyId, email, phone, dob, anniversary, approxTarget } = input;
 
-        const existingLink = await prisma.doctorCompany.findFirst({
-          where: { doctorId, companyId },
-        });
-        if (existingLink) {
-          return createResponse(400, false, "Doctor is already assigned to this company");
-        }
+  assignDoctorToCompany: async (_: any, { input }: any, context: Context) => {
+  try {
+    if (!context.user || context.authError) {
+      return createResponse(401, false, "Unauthorized");
+    }
+if (!context.user?.companyId) {
+      return createResponse(401, false, "Company not found");
+    }
 
-        const doctorCompany = await prisma.doctorCompany.create({
-          data: {
-            doctorId,
-            companyId,
-            email,
-            phone,
-            dob: input.dob || null,
-            anniversary: input.anniversary || null,
-            approxTarget,
+    const companyId = context.user.companyId;
+    const { doctorId, email, phone, dob, anniversary, approxTarget } = input;
+
+    const existingLink = await prisma.doctorCompany.findFirst({
+      where: { doctorId, companyId },
+    });
+
+    if (existingLink) {
+      return createResponse(400, false, "Doctor is already assigned to this company");
+    }
+
+    const doctorCompany = await prisma.doctorCompany.create({
+      data: {
+        doctorId,
+        companyId,
+        email,
+        phone,
+        dob: dob || null,
+        anniversary: anniversary || null,
+        approxTarget,
+      },
+      include: {
+        doctor: { include: { address: true } },   
+        doctorChemist: {
+          include: {
+            chemistCompany: {
+              include: {
+                chemist: { include: { address: true } },
+              },
+            },
           },
-        });
+        },
+      },
+    });
 
-        return createResponse(201, true, "Doctor assigned to company successfully", {
-          doctorCompany,
-        });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    return {
+      code: 201,
+      success: true,
+      message: "Doctor assigned to company successfully",
+      doctorCompany,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     unassignDoctorFromCompany: async (_: any, { input }: any) => {
       try {
@@ -338,47 +406,5 @@ updateDoctor: async (_: any, { input }: any, context: Context) => {
       }
     },
 
-    assignDoctorToChemists: async (_: any, { input }: any , context : Context) => {
-      try {
-        if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
-        const {id} = context.company
-        const { doctorId, chemistIds } = input;
-        const doctorChemists: any[] = [];
-
-        for (const chemistId of chemistIds) {
-          const existingLink = await prisma.doctorChemist.findFirst({
-            where: { doctorId, chemistId , companyId : id},
-          });
-          if (!existingLink) {
-            const link = await prisma.doctorChemist.create({
-              data: { doctorId, chemistId , companyId : id },
-            });
-            doctorChemists.push(link);
-          }
-        }
-
-        return createResponse(201, true, "Doctor assigned to chemists successfully", {
-          doctorChemists,
-        });
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
-
-    unassignDoctorFromChemists: async (_: any, { input }: any , context : Context) => {
-      try {
-        if(!context.company || context.authError) return createResponse(401, false, "Unauthorized");
-        const {id} = context.company
-        const { doctorId, chemistIds } = input;
-
-        await prisma.doctorChemist.deleteMany({
-          where: { doctorId, chemistId: { in: chemistIds } , companyId : id},
-        });
-
-        return createResponse(200, true, "Doctor unassigned from chemists successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
-  },
+  }
 };
