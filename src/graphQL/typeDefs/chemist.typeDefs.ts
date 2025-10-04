@@ -86,7 +86,7 @@ type DoctorChemist {
     code: Int!
     success: Boolean!
     message: String!
-    chemists: ChemistCompany!
+     data: ChemistCompany
   }
 
 # -------------------------------------------------------------------------------
