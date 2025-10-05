@@ -1,13 +1,15 @@
-function ConvertUTCToIST(dateString: any): any {
+export function convertUTCToIST(dateString: any): Date {
   const utcDate = new Date(dateString);
 
-  return new Intl.DateTimeFormat("en-IN", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(utcDate);
+  const istString = utcDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+  return new Date(istString);
+}
+
+export function nowIST(): Date {
+  // Get current UTC date
+  const utcDate = new Date();
+
+  // Convert to IST (UTC + 5h30m)
+  const istOffset = 5.5 * 60 * 60000; // in ms
+  return new Date(utcDate.getTime() + istOffset);
 }

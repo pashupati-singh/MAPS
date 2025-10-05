@@ -1,4 +1,5 @@
 import { Context } from "../../context";
+import { convertUTCToIST, nowIST } from "../../utils/ConvertUTCToIST";
 import { createResponse } from "../../utils/response";
 import { PrismaClient } from "@prisma/client";
 
@@ -83,7 +84,7 @@ Query: {
           return createResponse(400, false, "Company authorization required");
 
         const chemistProducts = await prisma.chemistProduct.findMany({
-          where: { chemistId, companyId: context.company.id },
+          where: { chemistCompanyId : chemistId, companyId: context.company.id },
           include: { product: true },
         });
 
@@ -149,11 +150,9 @@ assignProductToDoctor: async (_: any, { input }: any, context: Context) => {
         companyId,
       },
     });
-
+    const dateTime = nowIST();
     const alreadyAssignedIds = existingLinks.map((e) => e.productId);
-
     const newProductIds = productIds.filter((id: number) => !alreadyAssignedIds.includes(id));
-
     const createdLinks = await prisma.$transaction(
       newProductIds.map((productId: number) =>
         prisma.doctorProduct.create({
@@ -161,6 +160,7 @@ assignProductToDoctor: async (_: any, { input }: any, context: Context) => {
             doctorCompanyId,
             productId,
             companyId,
+            assignedAt : new Date(dateTime)
           },
         })
       )
@@ -172,6 +172,98 @@ assignProductToDoctor: async (_: any, { input }: any, context: Context) => {
       message: "Products assigned successfully",
       created: createdLinks,
     };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
+assignProductToChemist: async (_: any, { input }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    }
+    if (!context.user?.companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
+    
+    const companyId = context?.user?.companyId;
+    const { chemistCompanyId, productIds } = input;
+ 
+    const existingLinks = await prisma.chemistProduct.findMany({
+      where: {
+        chemistCompanyId,
+        productId: { in: productIds },
+        companyId,
+      },
+    });
+    const dateTime = nowIST();
+    const alreadyAssignedIds = existingLinks.map((e) => e.productId);
+
+    const newProductIds = productIds.filter((id: number) => !alreadyAssignedIds.includes(id));
+    const createdLinks = await prisma.$transaction(
+      newProductIds.map((productId: number) =>
+        prisma.chemistProduct.create({
+          data: {
+            chemistCompanyId,
+            productId,
+            companyId,
+            assignedAt : new Date(dateTime)
+          },
+        })
+      )
+    );
+
+    return {
+      code: 201,
+      success: true,
+      message: "Products assigned successfully",
+      created: createdLinks,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
+unassignProductFromDoctor: async (_: any, { doctorProductIds }: any, context: Context) => {
+  try {
+    if (!context || context.authError)
+      return createResponse(400, false, context.authError || "Authorization Error");
+    if (!context?.user?.companyId)
+      return createResponse(400, false, "Company authorization required");
+
+    const deleted = await prisma.doctorProduct.deleteMany({
+      where: {
+        id: { in: doctorProductIds },
+        companyId: context?.user?.companyId
+      },
+    });
+
+    if (deleted.count === 0)
+      return createResponse(404, false, "No doctor products found to unassign");
+
+    return createResponse(200, true, `${deleted.count} product(s) unassigned from doctor`);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+unassignProductFromChemist: async (_: any, { chemistProductIds }: any, context: Context) => {
+  try {
+    if (!context || context.authError)
+      return createResponse(400, false, context.authError || "Authorization Error");
+    if (!context?.user?.companyId)
+      return createResponse(400, false, "Company authorization required");
+
+    const deleted = await prisma.chemistProduct.deleteMany({
+      where: {
+        id: { in: chemistProductIds },
+        companyId : context?.user?.companyId,
+      },
+    });
+
+    if (deleted.count === 0)
+      return createResponse(404, false, "No chemist products found to unassign");
+
+    return createResponse(200, true, `${deleted.count} product(s) unassigned from chemist`);
   } catch (err: any) {
     return createResponse(500, false, err.message);
   }
@@ -204,45 +296,6 @@ assignProductToDoctor: async (_: any, { input }: any, context: Context) => {
       }
     },
 
-    unassignProductFromDoctor: async (_: any, { doctorId, productId }: any, context: Context) => {
-      try {
-        if (!context || context.authError)
-          return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id)
-          return createResponse(400, false, "Company authorization required");
-
-        const deleted = await prisma.doctorProduct.deleteMany({
-          where: { doctorCompanyId: doctorId, productId, companyId: context.company.id },
-        });
-
-        if (deleted.count === 0)
-          return createResponse(404, false, "Product not assigned to this doctor");
-
-        return createResponse(200, true, "Product unassigned from doctor successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
-
-    unassignProductFromChemist: async (_: any, { chemistId, productId }: any, context: Context) => {
-      try {
-        if (!context || context.authError)
-          return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id)
-          return createResponse(400, false, "Company authorization required");
-
-        const deleted = await prisma.chemistProduct.deleteMany({
-          where: { chemistId, productId, companyId: context.company.id },
-        });
-
-        if (deleted.count === 0)
-          return createResponse(404, false, "Product not assigned to this chemist");
-
-        return createResponse(200, true, "Product unassigned from chemist successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
   },
 
 }

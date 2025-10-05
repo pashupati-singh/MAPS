@@ -137,7 +137,6 @@ model Chemist {
   updatedAt        DateTime           @updatedAt
   address          Address?           @relation(fields: [addressId], references: [id])
   companies        ChemistCompany[]
-  products         ChemistProduct[]
   dailyCallReports DailyCallReport[]
   dailyPlans       DailyPlanChemist[]
   sale             Sale[]
@@ -163,17 +162,18 @@ model DoctorCompany {
 }
 
 model ChemistCompany {
-  id            Int             @id @default(autoincrement())
-  chemistId     Int
-  companyId     Int
-  email         String?
-  phone         String?
-  dob           String?
-  anniversary   String?
-  approxTarget  Int?
-  chemist       Chemist         @relation(fields: [chemistId], references: [id])
-  company       Company         @relation(fields: [companyId], references: [id])
-  doctorChemist DoctorChemist[]
+  id             Int              @id @default(autoincrement())
+  chemistId      Int
+  companyId      Int
+  email          String?
+  phone          String?
+  dob            String?
+  anniversary    String?
+  approxTarget   Int?
+  chemist        Chemist          @relation(fields: [chemistId], references: [id])
+  company        Company          @relation(fields: [companyId], references: [id])
+  ChemistProduct ChemistProduct[]
+  doctorChemist  DoctorChemist[]
 
   @@unique([chemistId, companyId])
 }
@@ -217,14 +217,14 @@ model DoctorProduct {
 }
 
 model ChemistProduct {
-  id         Int      @id @default(autoincrement())
-  chemistId  Int
-  productId  Int
-  companyId  Int
-  assignedAt DateTime @default(now())
-  chemist    Chemist  @relation(fields: [chemistId], references: [id])
-  company    Company  @relation(fields: [companyId], references: [id])
-  product    Product  @relation(fields: [productId], references: [id])
+  id               Int            @id @default(autoincrement())
+  productId        Int
+  companyId        Int
+  assignedAt       DateTime       @default(now())
+  chemistCompanyId Int
+  ChemistCompany   ChemistCompany @relation(fields: [chemistCompanyId], references: [id])
+  company          Company        @relation(fields: [companyId], references: [id])
+  product          Product        @relation(fields: [productId], references: [id])
 }
 
 model DailyPlan {

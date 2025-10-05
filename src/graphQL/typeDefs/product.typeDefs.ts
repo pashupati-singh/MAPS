@@ -6,8 +6,9 @@ type Mutation {
   assignProductToDoctor(input: AssignProductToDoctorInput!): AssignProductToDoctorResponse!
   assignProductToChemist(input: AssignProductToChemistInput!): AssignProductToChemistResponse!
   updateProduct(id: Int!, input: UpdateProductInput!): ProductResponse!
-  unassignProductFromDoctor(doctorId: Int!, productId: Int!): ProductResponse!
-  unassignProductFromChemist(chemistId: Int!, productId: Int!): ProductResponse!
+  unassignProductFromDoctor(doctorProductIds: [Int!]!): ProductResponse!
+  unassignProductFromChemist(chemistProductIds: [Int!]!): ProductResponse!
+
 }
 
 type Query {
@@ -38,8 +39,8 @@ input AssignProductToDoctorInput {
 
 
 input AssignProductToChemistInput {
-  chemistId: Int!
-  productId: Int!
+  chemistCompanyId: Int!
+  productIds: [Int!]!
 }
 
 type ProductResponse {
