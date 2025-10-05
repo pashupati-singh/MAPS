@@ -6,6 +6,16 @@ export const ChemistTypeDefs = `#graphql
     SUSPENDED
   }
 
+  scalar JSON
+
+type Product {
+  id: Int
+  name: String!
+  type: String!
+  salt: String
+  details: JSON
+}
+
   type Address {
     id: Int
     address: String
@@ -19,7 +29,7 @@ export const ChemistTypeDefs = `#graphql
   }
 
   type Chemist {
-    id: Int!
+    id: Int
     name: String!
     titles: [String]
     status: ChemistStatus
@@ -29,7 +39,7 @@ export const ChemistTypeDefs = `#graphql
   }
 
 type Doctor {
-  id: Int!
+  id: Int
   name: String!
   titles: [String]
   status: DoctorStatus
@@ -39,7 +49,7 @@ type Doctor {
 }
 
   type DoctorCompany {
-    id: Int!
+    id: Int
     doctor: Doctor
     email: String
     phone: String
@@ -49,15 +59,20 @@ type Doctor {
   }
 
 type DoctorChemist {
-  id: Int!
+  id: Int
   doctorCompany: DoctorCompany!
 }
 
+type ChemistProduct {
+  id: Int!
+  product: Product!
+}
 
  type ChemistCompany {
-  id: Int!
+  id: Int
   chemist: Chemist!
   doctorChemist: [DoctorChemist!]
+  ChemistProduct: [ChemistProduct!]
   email: String
   phone: String
   dob: String

@@ -66,19 +66,33 @@ export const DoctorResolvers = {
       return createResponse(401, false, "Company not found");
     }
 
-    const doctorCompany = await prisma.doctorCompany.findFirst({
-      where: { id: Number(id), companyId },
-     include: {
-      doctor: { include: { address: true } },
-       doctorChemist: {
-       include: {
+   const doctorCompany = await prisma.doctorCompany.findFirst({
+  where: { id: Number(id), companyId },
+  include: {
+    doctor: { include: { address: true } },
+    doctorChemist: {
+      include: {
         chemistCompany: {
           include: { chemist: { include: { address: true } } }
         }
       }
+    },
+    DoctorProduct: {
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            salt: true,
+            details: true,
+          }
+        }
+      }
     }
   }
-    });
+});
+
 
     if (!doctorCompany) {
       return createResponse(404, false, "Doctor not found", { data: null });

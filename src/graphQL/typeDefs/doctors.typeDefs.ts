@@ -24,10 +24,8 @@ type Product {
   type: String!
   salt: String
   details: JSON
-  companyId: Int!
-  createdAt: String!
-  updatedAt: String!
 }
+
 
 type Chemist {
   id: Int!
@@ -49,10 +47,16 @@ type Doctor {
   updatedAt: String
 }
 
+type DoctorProduct {
+  id: Int!
+  product: Product!
+}
+
 type DoctorCompany {
   id: Int!
   doctor: Doctor!               
   doctorChemist: [DoctorChemist!]
+  DoctorProduct: [DoctorProduct!]
   email: String
   phone: String
   dob: String
