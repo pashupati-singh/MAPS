@@ -376,7 +376,8 @@ export const UserResolver = {
           JWT_SECRET ,
           { expiresIn: "7d" }
         );
-        
+
+       
 
         return {
           code: 200,

@@ -112,6 +112,10 @@ export const CompanyTypeDefs = `#graphql
 type CompanyLoginData {
   token: String!
   company: Company!
+  totalUser : Int
+  totalDoc : Int
+  totalChemist : Int
+  totalPro : Int
 }
 
 type CompanyLoginResponse {

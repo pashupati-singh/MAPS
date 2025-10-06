@@ -316,7 +316,31 @@ export const CompanyResolver = {
     const token = jwt.sign({ companyId: company.id }, JWT_SECRET, {
       expiresIn: "7h",
     });
-    const data = {token , company}; 
+     const totalUser = await prisma.user.count({
+          where: {
+            companyId: company.id,
+          },
+        });
+
+        const totalDoc = await prisma.doctorCompany.count({
+          where: {
+            companyId: company.id,
+          },
+        });
+
+        const totalChemist = await prisma.chemistCompany.count({
+          where: {
+            companyId: company.id,
+          },
+        })
+
+        const totalPro = await prisma.product.count({
+          where: {
+            companyId: company.id,
+          },
+        })
+        
+    const data = {token , company , totalUser , totalDoc , totalChemist , totalPro}; 
     return {
       code: 200,
       success: true,
