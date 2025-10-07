@@ -57,6 +57,68 @@ export const UserResolver = {
   }
 },
 
+getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return {
+        code: 400,
+        success: false,
+        message: context?.authError || "Authorization Error",
+        data: [],
+        lastPage: 0
+      };
+    }
+
+    const companyId = context?.user?.companyId;
+    if (!companyId) {
+      return {
+        code: 400,
+        success: false,
+        message: "Company ID missing from context",
+        data: [],
+        lastPage: 0
+      };
+    }
+
+    const whereClause: any = { companyId };
+    if (args.role) whereClause.role = args.role;
+
+    const users = await prisma.user.findMany({
+      where: whereClause,
+      orderBy: { id: "asc" },
+    });
+
+    let result = users;
+    if (args.userId) {
+      const assignedUsers = await prisma.user.findMany({
+        where: { abmId: args.userId, companyId },
+        select: { id: true },
+      });
+      const assignedIds = new Set(assignedUsers.map(u => u.id));
+
+      result = users.map(u => ({
+        ...u,
+        isAssigned: assignedIds.has(u.id),
+      }));
+    }
+
+    return {
+      code: 200,
+      success: true,
+      message: "All users fetched successfully",
+      data: result,
+      lastPage: 1 
+    };
+  } catch (err: any) {
+    return {
+      code: 500,
+      success: false,
+      message: err.message,
+      data: [],
+      lastPage: 0
+    };
+  }
+},
 
     userId: async (_: any, { id }: { id: number }) => {
       try {
@@ -391,39 +453,37 @@ export const UserResolver = {
       }
     },
 
-    assignMrsToAbm: async (_: any, { data }: any , context :Context) => {
+   assignMrsToAbm: async (_: any, { data }: any, context: Context) => {
   try {
     const { abmId, mrIds } = data;
     if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
     if (!context.user?.companyId) return createResponse(400, false, "Authorization required");
 
-
     if (!abmId) return createResponse(400, false, "ABM ID is required");
-    if (!mrIds || mrIds.length === 0) {
-      return createResponse(400, false, "At least one MR ID is required");
-    }
+    if (!mrIds || mrIds.length === 0) return createResponse(400, false, "At least one MR ID is required");
 
-    const abm = await prisma.user.findUnique({ where: { id: abmId , companyId : context.user?.companyId} });
+    const abm = await prisma.user.findUnique({ where: { id: abmId, companyId: context.user.companyId } });
     if (!abm) return createResponse(404, false, "ABM not found");
-    if (abm.role !== "ABM") {
-      return createResponse(400, false, "Provided user is not an ABM");
-    }
+    if (abm.role !== "ABM") return createResponse(400, false, "Provided user is not an ABM");
 
+    // Ensure MR IDs are valid
     const mrs = await prisma.user.findMany({
-      where: { id: { in: mrIds }, companyId : context.user?.companyId },
+      where: { id: { in: mrIds }, companyId: context.user.companyId },
     });
-
-    if (mrs.length !== mrIds.length) {
-      return createResponse(400, false, "One or more MR IDs are invalid");
-    }
+    if (mrs.length !== mrIds.length) return createResponse(400, false, "One or more MR IDs are invalid");
 
     const notMrUsers = mrs.filter(u => u.role !== "MR");
-    if (notMrUsers.length > 0) {
-      return createResponse(400, false, "One or more users are not MRs");
-    }
+    if (notMrUsers.length > 0) return createResponse(400, false, "One or more users are not MRs");
 
+    // Step 1: Unassign all currently assigned MRs from this ABM
     await prisma.user.updateMany({
-      where: { id: { in: mrIds } },
+      where: { abmId, companyId: context.user.companyId },
+      data: { abmId: null },
+    });
+
+    // Step 2: Assign new MR IDs to this ABM
+    await prisma.user.updateMany({
+      where: { id: { in: mrIds }, companyId: context.user.companyId },
       data: { abmId },
     });
 
@@ -432,10 +492,11 @@ export const UserResolver = {
       include: { mrs: true },
     });
 
-    return createResponse(200, true, "MRs assigned to ABM successfully", updatedAbm);
+    return createResponse(200, true, "MR assignments updated successfully", updatedAbm);
   } catch (err: any) {
     return createResponse(500, false, err.message);
   }
-},
+}
+
   },
 }

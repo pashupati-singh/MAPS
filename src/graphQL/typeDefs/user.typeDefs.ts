@@ -69,6 +69,7 @@ export const UserTypeDefs = `#graphql
     name : String
     division: String
     joiningDate: String
+    isAssigned: Boolean
     status: UserStatus!
     company : Company
     createdAt: String!
@@ -125,6 +126,7 @@ input UpdateUserInput {
   type Query {
     getUsers(page: Int, limit: Int): UserResponses!
     userId (id: Int!): UserResponse!
+    getAllUsers(role: UserRole, userId: Int): UserResponses!
   }
 
   type Mutation {
