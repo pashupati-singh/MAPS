@@ -1,29 +1,79 @@
-
-
 export const DailyPlanTypeDefs = `#graphql
-  type DailyPlan {
-    id: Int!
-    mrId: Int!
-    abmId: Int
-    companyId: Int!
-    isApproved: Boolean!
-    workTogether: Boolean!
-    isRejected: Boolean!
-    isWorkTogetherConfirmed: Boolean!
-    planDate: String!
-    notes: String
-    createdAt: String!
-    updatedAt: String!
-    doctorIds: [Int!]!     # Array of related doctor IDs
-    chemistIds: [Int!]!    # Array of related chemist IDs
+ type DailyPlan {
+  id: Int!
+  mrId: Int!
+  abmId: Int
+  companyId: Int!
+  isApproved: Boolean!
+  workTogether: Boolean!
+  isRejected: Boolean!
+  isWorkTogetherConfirmed: Boolean!
+  planDate: String!
+  notes: String
+  createdAt: String!
+  updatedAt: String!
+  doctors: [DailyPlanDoctor!]!
+  chemists: [DailyPlanChemist!]!
+}
+
+type DailyPlanDoctor {
+  id: Int!
+  doctorCompanyId: Int
+  DoctorCompany: DoctorCompany
+  dcr : Boolean
+}
+
+type DailyPlanChemist {
+  id: Int!
+  chemistCompanyId: Int
+  ChemistCompany: ChemistCompany
+    dcr : Boolean
+
+}
+
+type DoctorCompany {
+  id: Int!
+  email: String
+  phone: String
+  doctor: Doctor
+  doctorChemist: [DoctorChemist!]
+  DoctorProduct: [DoctorProduct!]
+}
+
+type ChemistCompany {
+  id: Int!
+  email: String
+  phone: String
+  chemist: Chemist
+  doctorChemist: [DoctorChemist!]
+  ChemistProduct: [ChemistProduct!]
+}
+
+  type Chemist {
+    id: Int
+    name: String!
+    titles: [String]
+    status: ChemistStatus
+    address: Address
+    createdAt: String
+    updatedAt: String
   }
 
+type Doctor {
+  id: Int
+  name: String!
+  titles: [String]
+  status: DoctorStatus
+  address: Address
+  createdAt: String
+  updatedAt: String
+}
+
+
   input CreateDailyPlanInput {
-    mrId: Int!
     abmId: Int
-    companyId: Int!
-    doctorIds: [Int!]!    # Array of doctor IDs
-    chemistIds: [Int!]!   # Array of chemist IDs
+    doctorCompanyIds: [Int!]!     
+    chemistCompanyIds: [Int!]!    
     workTogether: Boolean
     planDate: String!
     notes: String
@@ -31,9 +81,18 @@ export const DailyPlanTypeDefs = `#graphql
 
   input UpdateDailyPlanInput {
     dailyPlanId: Int!
+    abmId: Int
+    workTogether: Boolean
     notes: String
-    doctorIds: [Int!]    # Optional: update list of doctors
-    chemistIds: [Int!]   # Optional: update list of chemists
+    doctorCompanyIds: [Int!]     
+    chemistCompanyIds: [Int!]    
+  }
+
+  input UpdateByAbmInput {
+    dailyPlanId: Int!
+    isApproved: Boolean
+    isRejected: Boolean
+    isWorkTogetherConfirmed: Boolean
   }
 
   type DailyPlanResponse {
@@ -50,15 +109,10 @@ export const DailyPlanTypeDefs = `#graphql
     data: [DailyPlan]
   }
 
-  input UpdateByAbmInput {
-  dailyPlanId: Int!
-  isApproved: Boolean
-  isRejected: Boolean
-  isWorkTogetherConfirmed: Boolean
-}
-
   type Query {
-    getDailyPlans(companyId: Int!): DailyPlansResponse!
+    getDailyPlansByCompanyId(page: Int, limit: Int): DailyPlansResponse!
+    getDailyPlansByMRId(page: Int, limit: Int): DailyPlansResponse!
+    getDailyPlansByABMId(page: Int, limit: Int): DailyPlansResponse!
     getDailyPlanById(id: Int!): DailyPlanResponse!
   }
 

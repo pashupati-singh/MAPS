@@ -6,57 +6,250 @@ const prisma = new PrismaClient();
 
 export const DailyPlanResolver = {
   Query: {
-    getDailyPlans: async (_: any, { companyId }: { companyId: number }) => {
+     getDailyPlansByCompanyId: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context?.authError || "Authorization Error");
+    }
+
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
+ if(context?.user?.role) return createResponse(400, false, "You are not authorised");
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const skip = (page - 1) * limit;
+
+    const totalPlans = await prisma.dailyPlan.count({ where: { companyId } });
+    const lastPage = Math.ceil(totalPlans / limit);
+
+    const plans = await prisma.dailyPlan.findMany({
+      where: { companyId },
+      skip,
+      take: limit,
+      orderBy: { planDate: "desc" },
+      include: {
+        doctors: {
+          include: {
+            DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
+          },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      code: 200,
+      success: true,
+      message: "Daily plans fetched successfully",
+      data: plans,
+      lastPage,
+    };
+  } catch (err: any) {
+    console.error("Error in getDailyPlansByCompanyId:", err);
+    return createResponse(500, false, err.message);
+  }
+},
+
+
+    getDailyPlansByMRId: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
       try {
-        if (!companyId) {
-          return createResponse(400, false, "Company ID is required");
+        if (!context || context.authError) {
+          return createResponse(400, false, context?.authError || "Authorization Error");
+        }
+        if(!context.user) return createResponse(400, false, "User authorization required");
+
+        const { userId, role } = context.user;
+        if (role !== "MR") {
+          return createResponse(400, false, "Only MRs can create daily plans");
         }
 
+        const companyId = context.company?.id;
+        if (!companyId) {
+          return createResponse(400, false, "Company ID is missing");
+        }
+
+        const whereClause: any = { companyId };
+        if (role === "MR") {
+          whereClause.mrId = userId;
+        }
+
+        const page = args.page && args.page > 0 ? args.page : 1;
+        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+        const skip = (page - 1) * limit;
+
+        const totalPlans = await prisma.dailyPlan.count({ where: whereClause });
+        const lastPage = Math.ceil(totalPlans / limit);
+
         const plans = await prisma.dailyPlan.findMany({
-          where: { companyId },
+          where: whereClause,
+          skip,
+          take: limit,
           orderBy: { planDate: "desc" },
           include: {
-            doctors: true,
-            chemists: true,
+        doctors: {
+          include: {
+            DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
           },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+      },
         });
 
-        const result = plans.map((plan : any) => ({
-          ...plan,
-          doctorIds: plan.doctors.map((d : any) => d.doctorId),
-          chemistIds: plan.chemists.map((c : any) => c.chemistId),
-        }));
-
-        return createResponse(200, true, "Daily plans fetched successfully", result);
+        return {
+          code: 200,
+          success: true,
+          message: "Daily plans fetched successfully by MR ID",
+          data: plans,
+          lastPage,
+        };
       } catch (err: any) {
+        console.error("Error in getDailyPlansByMRId:", err);
         return createResponse(500, false, err.message);
       }
     },
-    getDailyPlanById: async (_: any, { id }: { id: number }) => {
+
+    getDailyPlansByABMId: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
       try {
+        if (!context || context.authError) {
+          return createResponse(400, false, context?.authError || "Authorization Error");
+        }
+        if(!context.user) return createResponse(400, false, "User authorization required");
+        const { userId , role } = context.user;
+
+        const companyId = context.company?.id;
+        if (!companyId) {
+          return createResponse(400, false, "Company authorization required");
+        }
+
+        const whereClause: any = { companyId };
+        if (role === "ABM") {
+          whereClause.abmId = userId;
+        }
+
+        const page = args.page && args.page > 0 ? args.page : 1;
+        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+        const skip = (page - 1) * limit;
+
+        const totalPlans = await prisma.dailyPlan.count({ where: whereClause });
+        const lastPage = Math.ceil(totalPlans / limit);
+
+        const plans = await prisma.dailyPlan.findMany({
+          where: whereClause,
+          skip,
+          take: limit,
+          orderBy: { planDate: "desc" },
+           include: {
+        doctors: {
+          include: {
+            DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
+          },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+      },
+        });
+        return {
+          code: 200,
+          success: true,
+          message: "Daily plans fetched successfully by ABM ID",
+          data: plans,
+          lastPage,
+        };
+      } catch (err: any) {
+        console.error("Error in getDailyPlansByABMId:", err);
+        return createResponse(500, false, err.message);
+      }
+    },
+    getDailyPlanById: async (_: any, { id }: { id: number } , context: Context) => {
+      try {
+        if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
+        if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
+        const companyId = context?.user?.companyId;
         if (!id) {
-          return createResponse(400, false, "Daily Plan ID is required");
+          return createResponse(400, false, "Daily Plan is required");
         }
 
         const plan = await prisma.dailyPlan.findUnique({
-          where: { id },
+          where: { id , companyId },
+           include: {
+        doctors: {
           include: {
-            doctors: true,
-            chemists: true,
+            DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
           },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+      },
         });
 
         if (!plan) {
           return createResponse(404, false, "Daily plan not found");
         }
-
-        const result = {
-          ...plan,
-          doctorIds: plan.doctors.map(d => d.doctorId),
-          chemistIds: plan.chemists.map(c => c.chemistId),
-        };
-
-        return createResponse(200, true, "Daily plan fetched successfully", result);
+        return createResponse(200, true, "Daily plan fetched successfully", plan);
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
@@ -64,260 +257,246 @@ export const DailyPlanResolver = {
   },
 
   Mutation: {
-    createDailyPlan: async (_: any, { data }: any, context : Context) => {
+    createDailyPlan: async (_: any, { data }: any, context: Context) => {
       try {
-        if(!context){
-          return createResponse(400, false, "Token missing or invalid");
+        if (!context || !context.user) {
+          return createResponse(400, false, "Invalid token or user");
         }
-        if(!context.user){
-          return createResponse(400, false, "User not found");
-        }
-        const {userId , role} = context.user;
-        if(role !== "MR"){
+
+        const { userId, role } = context.user;
+        if (role !== "MR") {
           return createResponse(400, false, "Only MRs can create daily plans");
         }
-        const mrId = userId;
 
         const companyId = context.company?.id;
-        if(!companyId){
-          return createResponse(400, false, "Company Id is missing");
+        if (!companyId) {
+          return createResponse(400, false, "Company ID is missing");
         }
 
-        const { abmId, doctorIds, chemistIds, workTogether, planDate, notes } = data;
+        const { abmId, doctorCompanyIds, chemistCompanyIds, workTogether, planDate, notes } = data;
 
-        if (!mrId || !companyId || !planDate) {
-          return createResponse(400, false, "MR ID, Company ID, and Plan Date are required");
+        if (!planDate) {
+          return createResponse(400, false, "Plan Date is required");
         }
+        if(workTogether && !abmId) {
+          return createResponse(400, false, "ABM is required for work together");
+        }
+        if(abmId && !workTogether) {
+          return createResponse(400, false, "If you select ABM, then Request to work with");
+        }
+        const inputDate  = new Date(planDate);
+        const date = new Date(Date.UTC(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate()));
+        const existingPlan = await prisma.dailyPlan.findFirst({
+               where: {
+                 mrId: userId,
+                 companyId: companyId,
+                 planDate: date,
+               },
+             });
+
+             if (existingPlan) {
+              return createResponse(400, false, "You already created a daily plan for this date.");
+             }
         const newPlan = await prisma.dailyPlan.create({
           data: {
-            mrId,
+            mrId: userId,
             abmId,
             companyId,
             workTogether: workTogether || false,
-            planDate: new Date(planDate),
+            planDate: date,
             notes,
             doctors: {
-              create: doctorIds?.map((doctorId: number) => ({ doctorId })) || [],
+              create: doctorCompanyIds?.map((doctorCompanyId: number) => ({
+                doctorCompanyId,
+              })) || [],
             },
             chemists: {
-              create: chemistIds?.map((chemistId: number) => ({ chemistId })) || [],
+              create: chemistCompanyIds?.map((chemistCompanyId: number) => ({
+                chemistCompanyId,
+              })) || [],
             },
-          },
-          include: {
-            doctors: true,
-            chemists: true,
           },
         });
 
-        const result = {
-          ...newPlan,
-          doctorIds: newPlan.doctors.map((d:any)=> d.doctorId),
-          chemistIds: newPlan.chemists.map((c:any) => c.chemistId),
-        };
-
-        return createResponse(201, true, "Daily plan created successfully", result);
+        return createResponse(201, true, "Daily plan created successfully");
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
 
-    updateDailyPlan: async (_: any, { data }: any , context : Context) => {
+    updateDailyPlan: async (_: any, { data }: any, context: Context) => {
       try {
-        if(!context){
-          return createResponse(400, false, "Token missing or invalid");
-        }
-        if(!context.user){
-          return createResponse(400, false, "User not found");
-        }
-        const {userId ,companyId , role} = context.user;
-
-        if(!companyId){
-          return createResponse(400, false, "Company Id is missing");
+        if (!context || !context.user) {
+          return createResponse(400, false, "Invalid token or user");
         }
 
-        const { dailyPlanId, notes, doctorIds, chemistIds } = data;
+        const { userId, companyId, role } = context.user;
+        const { dailyPlanId, notes, doctorCompanyIds, chemistCompanyIds , abmId , workTogether } = data;
 
         if (!dailyPlanId) {
           return createResponse(400, false, "Plan ID is required");
         }
 
         const plan = await prisma.dailyPlan.findUnique({
-          where: { id : dailyPlanId },
-          include: { doctors: true, chemists: true },
+          where: { id: dailyPlanId },
         });
 
         if (!plan) {
           return createResponse(404, false, "Daily plan not found");
         }
 
-        if(plan.companyId !== companyId){
-          return createResponse(400, false, "You are not authorized to update this daily plan");
+        if (plan.companyId !== companyId) {
+          return createResponse(403, false, "You are not authorized to update this daily plan");
         }
-        if(plan.mrId !== userId && role !== "MR"){
-          return createResponse(400, false, "You are not authorized to update this daily plan");
+
+        if (plan.mrId !== userId && role !== "MR") {
+          return createResponse(403, false, "You are not authorized to update this daily plan");
+        }
+
+        if(workTogether && !abmId) {
+          return createResponse(400, false, "ABM is required for work together");
+        }
+        if(abmId && !workTogether) {
+          return createResponse(400, false, "If you select ABM, then Request to work with");
         }
 
         const updatedData: any = {};
-        if (notes !== undefined) {
-          updatedData.notes = notes;
-        }
+        if (notes !== undefined) updatedData.notes = notes;
+        if (abmId !== undefined && workTogether) updatedData.abmId = abmId;
+        if(workTogether && abmId !== undefined) updatedData.workTogether = workTogether
 
-       await prisma.dailyPlan.update({
-          where: { id : dailyPlanId },
+        await prisma.dailyPlan.update({
+          where: { id: dailyPlanId },
           data: updatedData,
         });
 
-        if (doctorIds) {
-          await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: dailyPlanId } });
+        if (doctorCompanyIds) {
+          await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId } });
           await prisma.dailyPlanDoctor.createMany({
-            data: doctorIds.map((doctorId: number) => ({ dailyPlanId: dailyPlanId, doctorId })),
+            data: doctorCompanyIds.map((doctorCompanyId: number) => ({
+              dailyPlanId,
+              doctorCompanyId,
+            })),
             skipDuplicates: true,
           });
         }
-        if (chemistIds) {
-          await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: dailyPlanId } });
+
+        if (chemistCompanyIds) {
+          await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId } });
           await prisma.dailyPlanChemist.createMany({
-            data: chemistIds.map((chemistId: number) => ({ dailyPlanId: dailyPlanId, chemistId })),
+            data: chemistCompanyIds.map((chemistCompanyId: number) => ({
+              dailyPlanId,
+              chemistCompanyId,
+            })),
             skipDuplicates: true,
           });
         }
 
         const planWithRelations = await prisma.dailyPlan.findUnique({
-          where: { id : dailyPlanId },
-          include: {
-            doctors: true,
-            chemists: true,
-          },
+          where: { id: dailyPlanId },
         });
 
-        const result = {
-          ...planWithRelations,
-          doctorIds: planWithRelations?.doctors.map((d:any) => d.doctorId) || [],
-          chemistIds: planWithRelations?.chemists.map((c:any) => c.chemistId) || [],
-        };
-
-        return createResponse(200, true, "Daily plan updated successfully", result);
+        return createResponse(200, true, "Daily plan updated successfully");
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
 
-    updateDailyPlanByAbm: async (_: any, { data }: any , context : Context) => {
-  try {
-    if(!context){
-      return createResponse(400, false, "Token missing or invalid");
-    }
-    if(!context.user){
-      return createResponse(400, false, "User not found");
-    }
-
-    const {userId, companyId , role} = context.user;
-    if(role !== "ABM"){
-      return createResponse(400, false, "Your role is not ABM");
-    }
-
-    if(!companyId){
-       return createResponse(400, false, "Company Id is missing");
-    }
-    
-    const { dailyPlanId, isApproved, isRejected, isWorkTogetherConfirmed } = data;
-
-    if (!dailyPlanId) {
-      return createResponse(400, false, "Plan ID is required");
-    }
-
-    const plan = await prisma.dailyPlan.findUnique({
-      where: { id : dailyPlanId },
-      select: {
-        companyId: true,
-        isApproved: true,
-        isRejected: true,
-        workTogether: true,
-        isWorkTogetherConfirmed: true,
-      },
-    });
-
-    if (!plan) {
-      return createResponse(404, false, "Daily plan not found");
-    }
-
-    if(plan.companyId !== companyId){
-      return createResponse(400, false, "You are not authorized to update this daily plan");
-    }
-
-    if (isApproved && isRejected) {
-      return createResponse(400, false, "Plan cannot be both approved and rejected");
-    }
-
-    const updatedData: any = {};
-
-    if (isApproved !== undefined) {
-      updatedData.isApproved = isApproved;
-      if (isApproved) updatedData.isRejected = false; 
-    }
-    if (isRejected !== undefined) {
-      updatedData.isRejected = isRejected;
-      if (isRejected) updatedData.isApproved = false; 
-    }
-
-    if (isWorkTogetherConfirmed !== undefined) {
-      if (plan.workTogether) {
-        updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
-      } else {
-        return createResponse(400, false, "WorkTogether not requested by MR");
-      }
-    }
-
-    const updatedPlan = await prisma.dailyPlan.update({
-      where: { id : dailyPlanId },
-      data: updatedData,
-      include: {
-        doctors: true,
-        chemists: true,
-      },
-    });
-
-    const result = {
-      ...updatedPlan,
-      doctorIds: updatedPlan.doctors.map((d: any) => d.doctorId),
-      chemistIds: updatedPlan.chemists.map((c: any) => c.chemistId),
-    };
-
-    return createResponse(200, true, "Daily plan updated by ABM successfully", result);
-  } catch (err: any) {
-    return createResponse(500, false, err.message);
-  }
-},
-
-    deleteDailyPlan: async (_: any, { dailyPlanId }: { dailyPlanId: number } , context : Context) => {
+    updateDailyPlanByAbm: async (_: any, { data }: any, context: Context) => {
       try {
-        if(!context){
-          return createResponse(400, false, "Token missing or invalid");
+        if (!context || !context.user) {
+          return createResponse(400, false, "Invalid token or user");
         }
-        if(!context.user){
-          return createResponse(400, false, "User not found");
+
+        const { companyId, role } = context.user;
+        if (role !== "ABM") {
+          return createResponse(400, false, "Only ABMs can perform this action");
         }
-        const {userId , role} = context.user;
-        
+
+        const { dailyPlanId, isApproved, isRejected, isWorkTogetherConfirmed } = data;
 
         if (!dailyPlanId) {
           return createResponse(400, false, "Plan ID is required");
         }
 
-        const plan = await prisma.dailyPlan.findUnique({ where: { id : dailyPlanId } });
+        const plan = await prisma.dailyPlan.findUnique({
+          where: { id: dailyPlanId },
+          select: {
+            companyId: true,
+            isApproved: true,
+            isRejected: true,
+            workTogether: true,
+            isWorkTogetherConfirmed: true,
+          },
+        });
+
         if (!plan) {
           return createResponse(404, false, "Daily plan not found");
         }
-        await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId: userId } });
-        await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId: userId } });
 
-        await prisma.dailyPlan.delete({ where: { id : dailyPlanId } });
+        if (plan.companyId !== companyId) {
+          return createResponse(403, false, "Unauthorized to update this daily plan");
+        }
+
+        if (isApproved && isRejected) {
+          return createResponse(400, false, "Plan cannot be both approved and rejected");
+        }
+
+        const updatedData: any = {};
+
+        if (isApproved !== undefined) {
+          updatedData.isApproved = isApproved;
+          if (isApproved) updatedData.isRejected = false;
+        }
+
+        if (isRejected !== undefined) {
+          updatedData.isRejected = isRejected;
+          if (isRejected) updatedData.isApproved = false;
+        }
+
+        if (isWorkTogetherConfirmed !== undefined) {
+          if (plan.workTogether) {
+            updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
+          } else {
+            return createResponse(400, false, "WorkTogether not requested by MR");
+          }
+        }
+
+        const updatedPlan = await prisma.dailyPlan.update({
+          where: { id: dailyPlanId },
+          data: updatedData,
+        });
+
+
+        return createResponse(200, true, "Daily plan updated by ABM successfully");
+      } catch (err: any) {
+        return createResponse(500, false, err.message);
+      }
+    },
+
+    deleteDailyPlan: async (_: any, { dailyPlanId }: { dailyPlanId: number }, context: Context) => {
+      try {
+        if (!context || !context.user) {
+          return createResponse(400, false, "Invalid token or user");
+        }
+
+        if (!dailyPlanId) {
+          return createResponse(400, false, "Plan ID is required");
+        }
+
+        const plan = await prisma.dailyPlan.findUnique({ where: { id: dailyPlanId } });
+        if (!plan) {
+          return createResponse(404, false, "Daily plan not found");
+        }
+
+        await prisma.dailyPlanDoctor.deleteMany({ where: { dailyPlanId } });
+        await prisma.dailyPlanChemist.deleteMany({ where: { dailyPlanId } });
+        await prisma.dailyPlan.delete({ where: { id: dailyPlanId } });
 
         return createResponse(200, true, "Daily plan deleted successfully");
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
-
   },
 };

@@ -111,69 +111,69 @@ model Address {
 }
 
 model Doctor {
-  id               Int               @id @default(autoincrement())
-  name             String
-  titles           Json?
-  status           String            @default("ACTIVE")
-  addressId        Int?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  dailyCallReports DailyCallReport[]
-  dailyPlans       DailyPlanDoctor[]
-  address          Address?          @relation(fields: [addressId], references: [id])
-  companies        DoctorCompany[]
-  sale             Sale[]
-  stocks           Stock[]
-  target           Target[]
+  id        Int             @id @default(autoincrement())
+  name      String
+  titles    Json?
+  status    String          @default("ACTIVE")
+  addressId Int?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  address   Address?        @relation(fields: [addressId], references: [id])
+  companies DoctorCompany[]
+  sale      Sale[]
+  stocks    Stock[]
+  target    Target[]
 }
 
 model Chemist {
-  id               Int                @id @default(autoincrement())
-  name             String
-  titles           Json?
-  status           String             @default("ACTIVE")
-  addressId        Int?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  address          Address?           @relation(fields: [addressId], references: [id])
-  companies        ChemistCompany[]
-  dailyCallReports DailyCallReport[]
-  dailyPlans       DailyPlanChemist[]
-  sale             Sale[]
-  stocks           Stock[]
-  target           Target[]
+  id        Int              @id @default(autoincrement())
+  name      String
+  titles    Json?
+  status    String           @default("ACTIVE")
+  addressId Int?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  address   Address?         @relation(fields: [addressId], references: [id])
+  companies ChemistCompany[]
+  sale      Sale[]
+  stocks    Stock[]
+  target    Target[]
 }
 
 model DoctorCompany {
-  id            Int             @id @default(autoincrement())
-  doctorId      Int
-  companyId     Int
-  email         String?
-  phone         String?
-  dob           String?
-  anniversary   String?
-  approxTarget  Int?
-  doctorChemist DoctorChemist[]
-  company       Company         @relation(fields: [companyId], references: [id])
-  doctor        Doctor          @relation(fields: [doctorId], references: [id])
-  DoctorProduct DoctorProduct[]
+  id              Int               @id @default(autoincrement())
+  doctorId        Int
+  companyId       Int
+  email           String?
+  phone           String?
+  dob             String?
+  anniversary     String?
+  approxTarget    Int?
+  DailyCallReport DailyCallReport[]
+  DailyPlanDoctor DailyPlanDoctor[]
+  doctorChemist   DoctorChemist[]
+  company         Company           @relation(fields: [companyId], references: [id])
+  doctor          Doctor            @relation(fields: [doctorId], references: [id])
+  DoctorProduct   DoctorProduct[]
 
   @@unique([doctorId, companyId])
 }
 
 model ChemistCompany {
-  id             Int              @id @default(autoincrement())
-  chemistId      Int
-  companyId      Int
-  email          String?
-  phone          String?
-  dob            String?
-  anniversary    String?
-  approxTarget   Int?
-  chemist        Chemist          @relation(fields: [chemistId], references: [id])
-  company        Company          @relation(fields: [companyId], references: [id])
-  ChemistProduct ChemistProduct[]
-  doctorChemist  DoctorChemist[]
+  id               Int                @id @default(autoincrement())
+  chemistId        Int
+  companyId        Int
+  email            String?
+  phone            String?
+  dob              String?
+  anniversary      String?
+  approxTarget     Int?
+  chemist          Chemist            @relation(fields: [chemistId], references: [id])
+  company          Company            @relation(fields: [companyId], references: [id])
+  ChemistProduct   ChemistProduct[]
+  DailyCallReport  DailyCallReport[]
+  DailyPlanChemist DailyPlanChemist[]
+  doctorChemist    DoctorChemist[]
 
   @@unique([chemistId, companyId])
 }
@@ -236,7 +236,7 @@ model DailyPlan {
   workTogether            Boolean            @default(false)
   isWorkTogetherConfirmed Boolean            @default(false)
   isRejected              Boolean            @default(false)
-  planDate                DateTime           @unique
+  planDate                DateTime
   notes                   String?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
@@ -246,35 +246,39 @@ model DailyPlan {
   mr                      User               @relation("MRDailyPlans", fields: [mrId], references: [id])
   chemists                DailyPlanChemist[]
   doctors                 DailyPlanDoctor[]
+
+  @@unique([mrId, planDate])
 }
 
 model DailyPlanDoctor {
-  id          Int       @id @default(autoincrement())
-  dailyPlanId Int
-  doctorId    Int
-  dailyPlan   DailyPlan @relation(fields: [dailyPlanId], references: [id])
-  doctor      Doctor    @relation(fields: [doctorId], references: [id])
+  id              Int               @id @default(autoincrement())
+  dailyPlanId     Int
+  doctorCompanyId Int?
+  dcr             Boolean?          @default(false)
+  DailyCallReport DailyCallReport[]
+  dailyPlan       DailyPlan         @relation(fields: [dailyPlanId], references: [id])
+  DoctorCompany   DoctorCompany?    @relation(fields: [doctorCompanyId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([dailyPlanId, doctorId])
+  @@unique([dailyPlanId, doctorCompanyId])
 }
 
 model DailyPlanChemist {
-  id          Int       @id @default(autoincrement())
-  dailyPlanId Int
-  chemistId   Int
-  chemist     Chemist   @relation(fields: [chemistId], references: [id])
-  dailyPlan   DailyPlan @relation(fields: [dailyPlanId], references: [id])
+  id               Int               @id @default(autoincrement())
+  dailyPlanId      Int
+  chemistCompanyId Int?
+  dcr              Boolean?          @default(false)
+  DailyCallReport  DailyCallReport[]
+  ChemistCompany   ChemistCompany?   @relation(fields: [chemistCompanyId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  dailyPlan        DailyPlan         @relation(fields: [dailyPlanId], references: [id])
 
-  @@unique([dailyPlanId, chemistId])
+  @@unique([dailyPlanId, chemistCompanyId])
 }
 
 model DailyCallReport {
-  id                 Int        @id @default(autoincrement())
+  id                 Int               @id @default(autoincrement())
   dailyPlanId        Int
   mrId               Int
   abmId              Int?
-  doctorId           Int?
-  chemistId          Int?
   typeOfReport       ReportType
   reportDate         DateTime
   reportStartTime    String
@@ -284,17 +288,23 @@ model DailyCallReport {
   latitudeMR         Float?
   longitudeMR        Float?
   products           Json
-  mrReportCompleted  Boolean    @default(false)
-  abmReportCompleted Boolean    @default(false)
+  mrReportCompleted  Boolean           @default(false)
+  abmReportCompleted Boolean           @default(false)
   latitudeABM        Float?
   longitudeABM       Float?
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
-  abm                User?      @relation("ABMReports", fields: [abmId], references: [id])
-  chemist            Chemist?   @relation(fields: [chemistId], references: [id])
-  dailyPlan          DailyPlan  @relation(fields: [dailyPlanId], references: [id])
-  doctor             Doctor?    @relation(fields: [doctorId], references: [id])
-  mr                 User       @relation("MRReports", fields: [mrId], references: [id])
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  doctorCompanyId    Int?
+  chemistCompanyId   Int?
+  dailyPlanDoctorId  Int?
+  dailyPlanChemistId Int?
+  abm                User?             @relation("ABMReports", fields: [abmId], references: [id])
+  ChemistCompany     ChemistCompany?   @relation(fields: [chemistCompanyId], references: [id], onUpdate: NoAction)
+  DailyPlanChemist   DailyPlanChemist? @relation(fields: [dailyPlanChemistId], references: [id], onUpdate: NoAction)
+  DailyPlanDoctor    DailyPlanDoctor?  @relation(fields: [dailyPlanDoctorId], references: [id], onUpdate: NoAction)
+  dailyPlan          DailyPlan         @relation(fields: [dailyPlanId], references: [id])
+  DoctorCompany      DoctorCompany?    @relation(fields: [doctorCompanyId], references: [id], onUpdate: NoAction)
+  mr                 User              @relation("MRReports", fields: [mrId], references: [id])
 }
 
 model Stock {

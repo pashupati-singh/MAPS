@@ -466,7 +466,6 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
     if (!abm) return createResponse(404, false, "ABM not found");
     if (abm.role !== "ABM") return createResponse(400, false, "Provided user is not an ABM");
 
-    // Ensure MR IDs are valid
     const mrs = await prisma.user.findMany({
       where: { id: { in: mrIds }, companyId: context.user.companyId },
     });
@@ -475,13 +474,11 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
     const notMrUsers = mrs.filter(u => u.role !== "MR");
     if (notMrUsers.length > 0) return createResponse(400, false, "One or more users are not MRs");
 
-    // Step 1: Unassign all currently assigned MRs from this ABM
     await prisma.user.updateMany({
       where: { abmId, companyId: context.user.companyId },
       data: { abmId: null },
     });
 
-    // Step 2: Assign new MR IDs to this ABM
     await prisma.user.updateMany({
       where: { id: { in: mrIds }, companyId: context.user.companyId },
       data: { abmId },
