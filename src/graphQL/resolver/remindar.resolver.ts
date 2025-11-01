@@ -118,7 +118,6 @@ export const RemindarResolver = {
         if (!userId) return createResponse(400, false, "userId is required");
 
         const remindAt = toUtcMidnight(data.date); 
-        console.log("🚀 ~ file: remindar.resolver.ts ~ line 64 ~ remindAt", remindAt)
         const row = await prisma.remindar.create({
           data: {
             userId,

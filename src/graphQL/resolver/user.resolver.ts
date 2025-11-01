@@ -289,7 +289,6 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
     if (!context || context.authError) {
       return createResponse(400, false, context.authError || "Authorization Error");
     } 
-    console.log(data);
 
     const loggedInUser = context.user;
     let targetUserId = context?.user?.userId || data.id;
@@ -441,7 +440,6 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
         const now = new Date();
 
         if (type === "PHONE") {
-          console.log(user.phoneVerificationCode, user.phoneVerificationExpiry, now, otpOrToken);
           if (
             !user.phoneVerificationCode ||
             user.phoneVerificationExpiry! < now ||
