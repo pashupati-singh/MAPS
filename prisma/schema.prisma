@@ -88,6 +88,7 @@ model User {
   mrDailyPlans            DailyPlan[]       @relation("MRDailyPlans")
   expense                 Expense[]
   productTarget           ProductTarget[]
+  Remindar                Remindar[]
   sale                    Sale[]
   stocks                  Stock[]
   target                  Target[]
@@ -396,6 +397,17 @@ model Expense {
   updatedAt   DateTime        @updatedAt
   company     Company         @relation(fields: [companyId], references: [id])
   user        User            @relation(fields: [userId], references: [id])
+}
+
+model Remindar {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  remindAt  DateTime @db.Timestamp(6)
+  heading   String   @db.VarChar(255)
+  message   String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @db.Timestamptz(6)
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "Reminder_userId_fkey")
 }
 
 enum CompanySize {

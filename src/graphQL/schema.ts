@@ -13,6 +13,8 @@ import { DailyPlanTypeDefs } from './typeDefs/dailyPlans.typeDefs';
 import { DailyPlanResolver } from './resolver/dailyPlans.resolver';
 import { DailyCallReportResolver } from './resolver/dailyCallReport.resolver';
 import { DailyCallReportTypeDefs } from './typeDefs/dailycallreport.typeDefs';
+import { RemindarTypeDefs } from './typeDefs/remindar.typeDefs';
+import { RemindarResolver } from './resolver/remindar.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -22,7 +24,8 @@ export const typeDefs = mergeTypeDefs([
     ChemistTypeDefs,
     ProductTypeDefs,
     DailyPlanTypeDefs,
-    DailyCallReportTypeDefs
+    DailyCallReportTypeDefs,
+    RemindarTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -32,6 +35,7 @@ export const resolvers = mergeResolvers([
     ChemistResolvers,
     ProductResolvers,
     DailyPlanResolver,
-    DailyCallReportResolver
+    DailyCallReportResolver,
+    RemindarResolver
 
 ]);

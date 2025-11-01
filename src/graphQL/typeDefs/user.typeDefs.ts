@@ -129,6 +129,73 @@ input UpdateUserInput {
     getAllUsers(role: UserRole, userId: Int): UserResponses!
   }
 
+type Remindar {
+  id: Int!
+  userId: Int!
+  remindAt: String!
+  heading: String!
+  message: String
+  createdAt: String!
+  updatedAt: String!
+}
+
+
+type DoctorCompany {
+  id: Int!
+  doctorId: Int!
+  companyId: Int!
+  email: String
+  phone: String
+  dob: String         
+  anniversary: String 
+  approxTarget: Int
+ 
+}
+
+type ChemistCompany {
+  id: Int!
+  chemistId: Int!
+  companyId: Int!
+  email: String
+  phone: String
+  dob: String
+  anniversary: String
+  approxTarget: Int
+}
+
+union EventParty = DoctorCompany | ChemistCompany
+
+type DailyPlan {
+  id: Int!
+  mrId: Int!
+  abmId: Int
+  companyId: Int!
+  isApproved: Boolean!
+  workTogether: Boolean!
+  isWorkTogetherConfirmed: Boolean!
+  isRejected: Boolean!
+  planDate: String!
+  notes: String
+}
+
+type HomePageData {
+  remindars: [Remindar!]!       # [] if none
+  events: [EventParty!]!        # [] if none (DoctorCompany | ChemistCompany)
+  dailyplans: [DailyPlan!]!     # [] if none
+}
+
+type HomePageResponse {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: HomePageData
+}
+
+extend type Query {
+  homePage: HomePageResponse!
+}
+
+
   type Mutation {
     createUser(data: CreateUserInput!): UserResponse!
     updateUser(data: UpdateUserInput!): UserResponse!
