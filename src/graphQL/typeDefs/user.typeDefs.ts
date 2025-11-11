@@ -1,4 +1,3 @@
-
 export const UserTypeDefs = `#graphql
   enum UserRole {
     MR
@@ -12,6 +11,7 @@ export const UserTypeDefs = `#graphql
     BLOCKED
     SUSPENDED
   }
+
   enum CompanySize {
     STARTUP
     SME
@@ -24,8 +24,8 @@ export const UserTypeDefs = `#graphql
     SUSPENDED
   }
 
-   type Address {
-    address : String
+  type Address {
+    address: String
     city: String
     state: String
     pinCode: String
@@ -38,7 +38,7 @@ export const UserTypeDefs = `#graphql
     email: String
     phone: String
   }
-  
+
   type Company {
     id: Int
     name: String
@@ -66,12 +66,12 @@ export const UserTypeDefs = `#graphql
     email: String!
     phone: String!
     role: UserRole!
-    name : String
+    name: String
     division: String
     joiningDate: String
     isAssigned: Boolean
     status: UserStatus!
-    company : Company
+    company: Company
     createdAt: String!
     updatedAt: String!
   }
@@ -91,118 +91,130 @@ export const UserTypeDefs = `#graphql
     data: User
   }
 
-type UserResponses {
-  code: Int!
-  success: Boolean!
-  message: String
-  data: [User]
-  lastPage: Int
-}
+  type UserResponses {
+    code: Int!
+    success: Boolean!
+    message: String
+    data: [User]
+    lastPage: Int
+  }
+
   type AuthPayload {
-  code: Int!
-  success: Boolean!
-  message: String!
-  token: String
-  user: User
-  company: Company
-}
+    code: Int!
+    success: Boolean!
+    message: String!
+    token: String
+    user: User
+    company: Company
+  }
 
   input AssignMrsToAbmInput {
-  abmId: Int!
-  mrIds: [Int!]!
-}
+    abmId: Int!
+    mrIds: [Int!]!
+  }
 
-input UpdateUserInput {
-  id: Int
-  name: String
-  phone: String
-  division: String
-  status: UserStatus
-  role: UserRole
-  joiningDate: String
-}
-
+  input UpdateUserInput {
+    id: Int
+    name: String
+    phone: String
+    division: String
+    status: UserStatus
+    role: UserRole
+    joiningDate: String
+  }
 
   type Query {
     getUsers(page: Int, limit: Int): UserResponses!
-    userId (id: Int!): UserResponse!
+    userId(id: Int!): UserResponse!
     getAllUsers(role: UserRole, userId: Int): UserResponses!
   }
 
-type Remindar {
-  id: Int!
-  userId: Int!
-  remindAt: String!
-  heading: String!
-  message: String
-  createdAt: String!
-  updatedAt: String!
-}
+  type Remindar {
+    id: Int!
+    userId: Int!
+    remindAt: String!
+    heading: String!
+    message: String
+    createdAt: String!
+    updatedAt: String!
+  }
 
+  type DoctorCompany {
+    id: Int!
+    doctorId: Int!
+    companyId: Int!
+    email: String
+    phone: String
+    type: String          # "birthday" | "anniversary" | "both"
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
 
-type DoctorCompany {
-  id: Int!
-  doctorId: Int!
-  companyId: Int!
-  email: String
-  phone: String
-  dob: String         
-  anniversary: String 
-  approxTarget: Int
- 
-}
+  type ChemistCompany {
+    id: Int!
+    chemistId: Int!
+    companyId: Int!
+    email: String
+    phone: String
+    type: String          # "birthday" | "anniversary" | "both"
+    dob: String
+    anniversary: String
+    approxTarget: Int
+  }
 
-type ChemistCompany {
-  id: Int!
-  chemistId: Int!
-  companyId: Int!
-  email: String
-  phone: String
-  dob: String
-  anniversary: String
-  approxTarget: Int
-}
+  union EventParty = DoctorCompany | ChemistCompany
 
-union EventParty = DoctorCompany | ChemistCompany
+  type DailyPlan {
+    id: Int!
+    mrId: Int!
+    abmId: Int
+    companyId: Int!
+    isApproved: Boolean!
+    workTogether: Boolean!
+    isWorkTogetherConfirmed: Boolean!
+    isRejected: Boolean!
+    planDate: String!
+    notes: String
+  }
 
-type DailyPlan {
-  id: Int!
-  mrId: Int!
-  abmId: Int
-  companyId: Int!
-  isApproved: Boolean!
-  workTogether: Boolean!
-  isWorkTogetherConfirmed: Boolean!
-  isRejected: Boolean!
-  planDate: String!
-  notes: String
-}
+  type HomePageData {
+    remindars: [Remindar!]!     # [] if none
+    events: [EventParty!]!      # [] if none (DoctorCompany | ChemistCompany), includes 'type'
+    dailyplans: [DailyPlan!]!   # [] if none
+  }
 
-type HomePageData {
-  remindars: [Remindar!]!       # [] if none
-  events: [EventParty!]!        # [] if none (DoctorCompany | ChemistCompany)
-  dailyplans: [DailyPlan!]!     # [] if none
-}
+  type HomePageResponse {
+    code: Int!
+    success: Boolean!
+    message: String
+    data: HomePageData
+  }
 
-type HomePageResponse {
-  code: Int!
-  success: Boolean!
-  message: String
-  data: HomePageData
-}
+  # Upcoming events (tomorrow -> +10 days). Same structure: just a list of EventParty with 'type'.
+  type UpcomingEventsData {
+    events: [EventParty!]!
+  }
 
-extend type Query {
-  homePage: HomePageResponse!
-}
+  type UpcomingEventsResponse {
+    code: Int!
+    success: Boolean!
+    message: String
+    data: UpcomingEventsData
+  }
 
+  extend type Query {
+    homePage: HomePageResponse!
+    upcomingEvents: UpcomingEventsResponse!
+  }
 
   type Mutation {
     createUser(data: CreateUserInput!): UserResponse!
     updateUser(data: UpdateUserInput!): UserResponse!
-    setMpin( mpin: String!): UserResponse!
+    setMpin(mpin: String!): UserResponse!
     verifyMpin(userId: Int!, mpin: String!): AuthPayload!
     resendOtp(email: String, phone: String, type: String!): UserResponse!
-    verifyOtp(type : String!, email : String, phone : String, otpOrToken : String!): UserResponse!
+    verifyOtp(type: String!, email: String, phone: String, otpOrToken: String!): UserResponse!
     loginUser(email: String!, password: String!): AuthPayload!
     assignMrsToAbm(data: AssignMrsToAbmInput!): UserResponse!
   }

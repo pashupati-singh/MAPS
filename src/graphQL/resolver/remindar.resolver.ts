@@ -61,7 +61,7 @@ export const RemindarResolver = {
               lt: end
             },
           },
-          orderBy: { remindAt: "asc" },
+          orderBy: { remindAt: "desc" },
         });
 
         return {

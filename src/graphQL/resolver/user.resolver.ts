@@ -134,7 +134,101 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
       }
     },
 
- homePage: async (_: any, __: any, context: Context) => {
+//  homePage: async (_: any, __: any, context: Context) => {
+//   try {
+//     if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
+//     if (!context.user?.userId) return createResponse(400, false, "User authorization required");
+//     if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
+
+//     const userId = context.user.userId;
+//     const companyId = context.user.companyId;
+
+//     const { start, end } = istTodayUtcRange();
+//     const remindars = await prisma.remindar.findMany({
+//       where: { userId, remindAt: { gte: start, lt: end } },
+//       orderBy: { remindAt: "asc" },
+//     });
+
+//     const parts = new Intl.DateTimeFormat("en-GB", {
+//       timeZone: "Asia/Kolkata",
+//       day: "2-digit",
+//       month: "2-digit",
+//     }).formatToParts(new Date());
+//     const day = parts.find(p => p.type === "day")!.value;
+//     const month = parts.find(p => p.type === "month")!.value;
+//     const todayDM = `${day}/${month}`;
+//     const eventsDoctors = await prisma.doctorCompany.findMany({
+//       where: {
+//         companyId,
+//         OR: [
+//           { dob: { startsWith: todayDM } },
+//           { anniversary: { startsWith: todayDM } },
+//         ],
+//       },
+//       include :{doctor: true},
+//       orderBy: { id: "asc" },
+//     });
+
+//     const eventsChemist = await prisma.chemistCompany.findMany({
+//       where: {
+//         companyId,
+//         OR: [
+//           { dob: { startsWith: todayDM } },
+//           { anniversary: { startsWith: todayDM } },
+//         ],
+//       },
+//       include :{chemist: true},
+//       orderBy: { id: "asc" },
+//     });
+
+//     const events = [
+//       ...eventsDoctors.map(d => ({ ...d, __typename: "DoctorCompany" })),
+//       ...eventsChemist.map(c => ({ ...c, __typename: "ChemistCompany" })),
+//     ];
+
+//     const dailyplans = await prisma.dailyPlan.findMany({
+//       where: { companyId , mrId: userId, planDate: { gte: start, lt: end } },
+//       include: {
+//         doctors: {
+//           include: {
+//             DoctorCompany: {
+//               include: {
+//                 doctor: true,
+//                 doctorChemist: true,
+//                 DoctorProduct: true,
+//               },
+//             },
+//           },
+//         },
+//         chemists: {
+//           include: {
+//             ChemistCompany: {
+//               include: {
+//                 chemist: true,
+//                 doctorChemist: true,
+//                 ChemistProduct: true,
+//               },
+//             },
+//           },
+//         },
+//       },
+//     });
+
+//     return {
+//       code: 200,
+//       success: true,
+//       message: "Remindars fetched successfully",
+//       data: {
+//         remindars: remindars ?? [],
+//         events: events ?? [],
+//         dailyplans: dailyplans ?? [],
+//       },
+//     };
+//   } catch (err: any) {
+//     return createResponse(500, false, err.message);
+//   }
+// },
+homePage: async (_: any, __: any, context: Context) => {
   try {
     if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
     if (!context.user?.userId) return createResponse(400, false, "User authorization required");
@@ -149,6 +243,7 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
       orderBy: { remindAt: "asc" },
     });
 
+    // Build today's DD/MM in IST
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Kolkata",
       day: "2-digit",
@@ -157,6 +252,7 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
     const day = parts.find(p => p.type === "day")!.value;
     const month = parts.find(p => p.type === "month")!.value;
     const todayDM = `${day}/${month}`;
+
     const eventsDoctors = await prisma.doctorCompany.findMany({
       where: {
         companyId,
@@ -165,7 +261,7 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
           { anniversary: { startsWith: todayDM } },
         ],
       },
-      include :{doctor: true},
+      include: { doctor: true },
       orderBy: { id: "asc" },
     });
 
@@ -177,14 +273,26 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
           { anniversary: { startsWith: todayDM } },
         ],
       },
-      include :{chemist: true},
+      include: { chemist: true },
       orderBy: { id: "asc" },
     });
 
-    const events = [
-      ...eventsDoctors.map(d => ({ ...d, __typename: "DoctorCompany" })),
-      ...eventsChemist.map(c => ({ ...c, __typename: "ChemistCompany" })),
-    ];
+    // ➜ ONLY CHANGE: add `type` on each item, keep structure & __typename
+    const doctorEvents = eventsDoctors.map(d => {
+      const isBirthday = d.dob?.startsWith(todayDM);
+      const isAnniv = d.anniversary?.startsWith(todayDM);
+      const type = isBirthday && isAnniv ? "both" : isBirthday ? "birthday" : "anniversary";
+      return { ...d, type, __typename: "DoctorCompany" as const };
+    });
+
+    const chemistEvents = eventsChemist.map(c => {
+      const isBirthday = c.dob?.startsWith(todayDM);
+      const isAnniv = c.anniversary?.startsWith(todayDM);
+      const type = isBirthday && isAnniv ? "both" : isBirthday ? "birthday" : "anniversary";
+      return { ...c, type, __typename: "ChemistCompany" as const };
+    });
+
+    const events = [...doctorEvents, ...chemistEvents];
 
     const dailyplans = await prisma.dailyPlan.findMany({
       where: { companyId , mrId: userId, planDate: { gte: start, lt: end } },
@@ -220,7 +328,7 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
       message: "Remindars fetched successfully",
       data: {
         remindars: remindars ?? [],
-        events: events ?? [],
+        events: events ?? [],     
         dailyplans: dailyplans ?? [],
       },
     };
@@ -228,6 +336,78 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
     return createResponse(500, false, err.message);
   }
 },
+
+upcomingEvents: async (_: any, __: any, context: Context) => {
+  try {
+    if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
+    if (!context.user?.userId) return createResponse(400, false, "User authorization required");
+    if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
+
+    const companyId = context.user.companyId;
+    const fmtParts = (d: Date) =>
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "2-digit",
+      }).formatToParts(d);
+
+    const toDM = (d: Date) => {
+      const parts = fmtParts(d);
+      const day = parts.find(p => p.type === "day")!.value;
+      const month = parts.find(p => p.type === "month")!.value;
+      return `${day}/${month}`;
+    };
+
+    const dmList: string[] = [];
+    for (let i = 1; i <= 10; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      dmList.push(toDM(d));
+    }
+    const dmOr = dmList.flatMap(dm => ([
+      { dob: { startsWith: dm } },
+      { anniversary: { startsWith: dm } },
+    ]));
+    const eventsDoctors = await prisma.doctorCompany.findMany({
+      where: { companyId, OR: dmOr },
+      include: { doctor: true },
+      orderBy: { id: "asc" },
+    });
+
+    const eventsChemist = await prisma.chemistCompany.findMany({
+      where: { companyId, OR: dmOr },
+      include: { chemist: true },
+      orderBy: { id: "asc" },
+    });
+    const doctorEvents = eventsDoctors.map(d => {
+      const hasBirthday = !!dmList.find(dm => d.dob?.startsWith(dm));
+      const hasAnniv   = !!dmList.find(dm => d.anniversary?.startsWith(dm));
+      const type = (hasBirthday && hasAnniv) ? "both" : (hasBirthday ? "birthday" : "anniversary");
+      return { ...d, type, __typename: "DoctorCompany" as const };
+    });
+
+    const chemistEvents = eventsChemist.map(c => {
+      const hasBirthday = !!dmList.find(dm => c.dob?.startsWith(dm));
+      const hasAnniv   = !!dmList.find(dm => c.anniversary?.startsWith(dm));
+      const type = (hasBirthday && hasAnniv) ? "both" : (hasBirthday ? "birthday" : "anniversary");
+      return { ...c, type, __typename: "ChemistCompany" as const };
+    });
+
+    const events = [...doctorEvents, ...chemistEvents];
+
+    return {
+      code: 200,
+      success: true,
+      message: "Upcoming events fetched successfully",
+      data: {
+        events: events ?? [], 
+      },
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
 
 },
