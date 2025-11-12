@@ -23,7 +23,7 @@ Query: {
 
         if (!product) return createResponse(404, false, "Product not found");
 
-        return createResponse(200, true, "Product fetched successfully", { product });
+        return {code : 200, success : true,  message : "Product fetched successfully",   product }
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
@@ -52,7 +52,6 @@ Query: {
       skip: (page - 1) * limit,
       take: limit,
     });
-    console.log(products)
 
    return {
      code: 200,

@@ -12,7 +12,7 @@ type Mutation {
 }
 
 type Query {
-  getProductById(productId: Int!): ProductResponse!
+  getProductById(productId: Int!): ProductResponseById!
   getProductsByCompany( page: Int, limit: Int , companyId: Int): ProductResponsePagination!
   getProductsByDoctor(doctorId: Int!): ProductResponse!
   getProductsByChemist(chemistId: Int!): ProductResponse!
@@ -56,6 +56,13 @@ type ProductResponse {
   success: Boolean!
   message: String!
   product: [Product!]
+}
+
+type ProductResponseById {
+  code: Int!
+  success: Boolean!
+  message: String!
+  product: Product!
 }
 
 type AssignProductToDoctorResponse {
