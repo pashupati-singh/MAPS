@@ -29,7 +29,7 @@ Query: {
       }
     },
 
-    getProductsByCompany: async (_: any,args: { page?: number; limit?: number }, context: Context) => {
+    getProductsByCompany: async (_: any,args: { page?: number; limit?: number , companyId?: number }, context: Context) => {
   try {
     if (!context || context.authError) {
       return createResponse(400, false, context.authError || "Authorization Error");
@@ -38,7 +38,7 @@ Query: {
       return createResponse(400, false, "Company authorization required");
     }
 
-    const companyId = context?.user?.companyId;
+    const companyId = context?.user?.companyId || args.companyId;
     const page = args.page && args.page > 0 ? args.page : 1;
         const limit = args.limit && args.limit > 0 ? args.limit : 10;
 
