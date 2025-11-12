@@ -29,7 +29,7 @@ Query: {
       }
     },
 
-    getProductsByCompany: async (_: any, __: any, context: Context) => {
+    getProductsByCompany: async (_: any,args: { page?: number; limit?: number }, context: Context) => {
   try {
     if (!context || context.authError) {
       return createResponse(400, false, context.authError || "Authorization Error");
@@ -39,17 +39,28 @@ Query: {
     }
 
     const companyId = context?.user?.companyId;
+    const page = args.page && args.page > 0 ? args.page : 1;
+        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+        const total = await prisma.product.count({
+          where: { companyId },
+        });
+        const lastPage = Math.max(1, Math.ceil(total / limit));
 
     const products = await prisma.product.findMany({
       where: { companyId },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    console.log(products)
 
    return {
-  code: 200,
-  success: true,
-  message: "Products fetched successfully",
-  product: products,
-};
+     code: 200,
+     success: true,
+     message: "Products fetched successfully",
+     data: products,
+     lastPage
+   };
   } catch (err: any) {
     return createResponse(500, false, err.message, { product: [] });
   }
