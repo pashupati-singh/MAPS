@@ -445,86 +445,265 @@ export const WorkingAreaResolver = {
       }
     },
 
+    // assignEntitiesToWorkingArea: async (
+    //   _: any,
+    //   { data }: any,
+    //   context: Context
+    // ) => {
+    //   try {
+    //     if (!context || context.authError) {
+    //       return createResponse(
+    //         400,
+    //         false,
+    //         context?.authError || "Authorization Error"
+    //       );
+    //     }
+
+    //     const companyId = context.company?.id || context.user?.companyId;
+    //     if (!companyId) {
+    //       return createResponse(400, false, "Company authorization required");
+    //     }
+
+    //     const {
+    //       workingAreaId,
+    //       doctorCompanyIds,
+    //       chemistCompanyIds,
+    //       userIds,
+    //     } = data;
+
+    //     if (!workingAreaId) {
+    //       return createResponse(400, false, "Working area ID is required");
+    //     }
+
+    //     const workingArea = await prisma.workingArea.findFirst({
+    //       where: { id: workingAreaId, companyId },
+    //     });
+
+    //     if (!workingArea) {
+    //       return createResponse(404, false, "Working area not found");
+    //     }
+
+    //     if (Array.isArray(doctorCompanyIds) && doctorCompanyIds.length > 0) {
+    //       await prisma.doctorCompanyWorkingArea.createMany({
+    //         data: doctorCompanyIds.map((id: number) => ({
+    //           doctorCompanyId: id,
+    //           workingAreaId,
+    //         })),
+    //         skipDuplicates: true,
+    //       });
+    //     }
+
+    //     if (Array.isArray(chemistCompanyIds) && chemistCompanyIds.length > 0) {
+    //       await prisma.chemistCompanyWorkingArea.createMany({
+    //         data: chemistCompanyIds.map((id: number) => ({
+    //           chemistCompanyId: id,
+    //           workingAreaId,
+    //         })),
+    //         skipDuplicates: true,
+    //       });
+    //     }
+
+    //     if (Array.isArray(userIds) && userIds.length > 0) {
+    //       await prisma.userWorkingArea.createMany({
+    //         data: userIds.map((id: number) => ({
+    //           userId: id,
+    //           workingAreaId,
+    //         })),
+    //         skipDuplicates: true,
+    //       });
+    //     }
+
+    //     return createResponse(
+    //       200,
+    //       true,
+    //       "Entities assigned to working area successfully"
+    //     );
+    //   } catch (err: any) {
+    //     console.error("Error in assignEntitiesToWorkingArea:", err);
+    //     return createResponse(500, false, err.message);
+    //   }
+    // },
+     
     assignEntitiesToWorkingArea: async (
-      _: any,
-      { data }: any,
-      context: Context
-    ) => {
-      try {
-        if (!context || context.authError) {
-          return createResponse(
-            400,
-            false,
-            context?.authError || "Authorization Error"
-          );
-        }
+  _: any,
+  { data }: any,
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(
+        400,
+        false,
+        context?.authError || "Authorization Error"
+      );
+    }
 
-        const companyId = context.company?.id || context.user?.companyId;
-        if (!companyId) {
-          return createResponse(400, false, "Company authorization required");
-        }
+    const companyId = context.company?.id || context.user?.companyId;
+    if (!companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
 
-        const {
-          workingAreaId,
-          doctorCompanyIds,
-          chemistCompanyIds,
-          userIds,
-        } = data;
+    const {
+      workingAreaId,
+      doctorCompanyIds,
+      chemistCompanyIds,
+      userIds,
+    } = data;
 
-        if (!workingAreaId) {
-          return createResponse(400, false, "Working area ID is required");
-        }
+    if (!workingAreaId) {
+      return createResponse(400, false, "Working area ID is required");
+    }
 
-        const workingArea = await prisma.workingArea.findFirst({
-          where: { id: workingAreaId, companyId },
+    const workingArea = await prisma.workingArea.findFirst({
+      where: { id: workingAreaId, companyId },
+    });
+
+    if (!workingArea) {
+      return createResponse(404, false, "Working area not found");
+    }
+
+    // ============================
+    // 🔹 SYNC USERS
+    // ============================
+    if (Array.isArray(userIds)) {
+      // 1) get existing mappings for this working area
+      const existingUserMappings = await prisma.userWorkingArea.findMany({
+        where: { workingAreaId },
+      });
+
+      const existingUserIds = existingUserMappings
+        .map((row) => row.userId)
+        .filter((id): id is number => id != null);
+
+      // 2) rows to delete: in DB but not in incoming array
+      const rowsToDelete = existingUserMappings.filter(
+        (row) => !userIds.includes(row.userId ?? -1)
+      );
+
+      const deleteIds = rowsToDelete.map((row) => row.id);
+
+      if (deleteIds.length > 0) {
+        await prisma.userWorkingArea.deleteMany({
+          where: {
+            id: { in: deleteIds },
+          },
+        });
+      }
+
+      // 3) rows to insert: in incoming array but not in DB
+      const userIdsToInsert = userIds.filter(
+        (id: number) => !existingUserIds.includes(id)
+      );
+
+      if (userIdsToInsert.length > 0) {
+        await prisma.userWorkingArea.createMany({
+          data: userIdsToInsert.map((id: number) => ({
+            userId: id,
+            workingAreaId,
+          })),
+        });
+      }
+    }
+
+    // ============================
+    // 🔹 SYNC DOCTOR COMPANIES
+    // ============================
+    if (Array.isArray(doctorCompanyIds)) {
+      const existingDoctorMappings =
+        await prisma.doctorCompanyWorkingArea.findMany({
+          where: { workingAreaId },
         });
 
-        if (!workingArea) {
-          return createResponse(404, false, "Working area not found");
-        }
+      const existingDoctorIds = existingDoctorMappings
+        .map((row) => row.doctorCompanyId)
+        .filter((id): id is number => id != null);
 
-      
+      // delete: existing but not in incoming
+      const doctorRowsToDelete = existingDoctorMappings.filter(
+        (row) => !doctorCompanyIds.includes(row.doctorCompanyId ?? -1)
+      );
 
-        if (Array.isArray(doctorCompanyIds) && doctorCompanyIds.length > 0) {
-          await prisma.doctorCompanyWorkingArea.createMany({
-            data: doctorCompanyIds.map((id: number) => ({
-              doctorCompanyId: id,
-              workingAreaId,
-            })),
-            skipDuplicates: true,
-          });
-        }
+      const deleteDoctorIds = doctorRowsToDelete.map((row) => row.id);
 
-        if (Array.isArray(chemistCompanyIds) && chemistCompanyIds.length > 0) {
-          await prisma.chemistCompanyWorkingArea.createMany({
-            data: chemistCompanyIds.map((id: number) => ({
-              chemistCompanyId: id,
-              workingAreaId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-
-        if (Array.isArray(userIds) && userIds.length > 0) {
-          await prisma.userWorkingArea.createMany({
-            data: userIds.map((id: number) => ({
-              userId: id,
-              workingAreaId,
-            })),
-            skipDuplicates: true,
-          });
-        }
-
-        return createResponse(
-          200,
-          true,
-          "Entities assigned to working area successfully"
-        );
-      } catch (err: any) {
-        console.error("Error in assignEntitiesToWorkingArea:", err);
-        return createResponse(500, false, err.message);
+      if (deleteDoctorIds.length > 0) {
+        await prisma.doctorCompanyWorkingArea.deleteMany({
+          where: {
+            id: { in: deleteDoctorIds },
+          },
+        });
       }
-    },
+
+      // insert: in incoming but not in existing
+      const doctorIdsToInsert = doctorCompanyIds.filter(
+        (id: number) => !existingDoctorIds.includes(id)
+      );
+
+      if (doctorIdsToInsert.length > 0) {
+        await prisma.doctorCompanyWorkingArea.createMany({
+          data: doctorIdsToInsert.map((id: number) => ({
+            doctorCompanyId: id,
+            workingAreaId,
+          })),
+        });
+      }
+    }
+
+    // ============================
+    // 🔹 SYNC CHEMIST COMPANIES
+    // ============================
+    if (Array.isArray(chemistCompanyIds)) {
+      const existingChemistMappings =
+        await prisma.chemistCompanyWorkingArea.findMany({
+          where: { workingAreaId },
+        });
+
+      const existingChemistIds = existingChemistMappings
+        .map((row) => row.chemistCompanyId)
+        .filter((id): id is number => id != null);
+
+      // delete: existing but not in incoming
+      const chemistRowsToDelete = existingChemistMappings.filter(
+        (row) => !chemistCompanyIds.includes(row.chemistCompanyId ?? -1)
+      );
+
+      const deleteChemistIds = chemistRowsToDelete.map((row) => row.id);
+
+      if (deleteChemistIds.length > 0) {
+        await prisma.chemistCompanyWorkingArea.deleteMany({
+          where: {
+            id: { in: deleteChemistIds },
+          },
+        });
+      }
+
+      // insert: in incoming but not in existing
+      const chemistIdsToInsert = chemistCompanyIds.filter(
+        (id: number) => !existingChemistIds.includes(id)
+      );
+
+      if (chemistIdsToInsert.length > 0) {
+        await prisma.chemistCompanyWorkingArea.createMany({
+          data: chemistIdsToInsert.map((id: number) => ({
+            chemistCompanyId: id,
+            workingAreaId,
+          })),
+        });
+      }
+    }
+
+    return createResponse(
+      200,
+      true,
+      "Entities assigned to working area successfully"
+    );
+  } catch (err: any) {
+    console.error("Error in assignEntitiesToWorkingArea:", err);
+    return createResponse(500, false, err.message);
+  }
+},
+
+
+
 
     assignWorkingAreasToEntities: async (
       _: any,
