@@ -81,10 +81,31 @@ export const WorkingAreaTypeDefs = `#graphql
     data: [User]
   }
 
+type Data {
+  user: [User!]
+  doctorCompany: [DoctorCompany!]
+  chemistCompany: [ChemistCompany!]
+}
+
+type WorkingAreaData {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: Data
+}
+
+  type User {
+    companyId: Int!
+    email: String!
+    phone: String!
+    role: UserRole!
+  }
+
   extend type Query {
     getWorkingAreasByCompanyId(companyId: Int , page: Int , limit: Int): WorkingAreaRelationsResponsePagination!
     getWorkingAreaRelations(workingAreaId: Int!): WorkingAreaRelationsResponse!
     getUsersByWorkingArea(workingAreaId: Int!): UsersByWorkingAreaResponse!
+    getWorkingAreaData(companyId: Int!): WorkingAreaData!
   }
 
   extend type Mutation {

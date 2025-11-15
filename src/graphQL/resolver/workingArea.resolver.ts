@@ -199,6 +199,47 @@ export const WorkingAreaResolver = {
         return createResponse(500, false, err.message);
       }
     },
+
+    getWorkingAreaData : async (_: any, { companyId }: { companyId?: number }, context: Context) => {
+        try {
+          if(!context || context.authError) {
+            return createResponse(
+              400,
+              false,
+              context?.authError || "Authorization Error"
+            );
+          }
+          if(!companyId) {
+            return createResponse(400, false, "Company ID is required");
+          }
+          const user = await prisma.user.findMany({
+            where: { companyId },
+          })
+          const doctor = await prisma.doctorCompany.findMany({
+            where: { companyId },
+            include : {doctor : true}
+          })
+          const chemist = await prisma.chemistCompany.findMany({
+            where: { companyId },
+            include : {chemist : true}
+          })
+
+          return {
+  code: 200,
+  success: true,
+  message: "Working area data fetched successfully",
+  data: {
+    user,
+    doctorCompany: doctor,
+    chemistCompany: chemist
+  }
+}
+
+        } catch (error  :any) {
+          console.error("Error in getUsersByWorkingArea:", error);
+        return createResponse(500, false, error.message);
+        }
+    },
   },
 
   Mutation: {
