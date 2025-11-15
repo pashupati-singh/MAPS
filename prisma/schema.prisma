@@ -48,6 +48,7 @@ model Company {
   sale                    Sale[]
   target                  Target[]
   user                    User[]
+  WorkingArea             WorkingArea[]
 }
 
 model PurchaseHistory {
@@ -95,6 +96,7 @@ model User {
   abm                     User?             @relation("ABM_MRs", fields: [abmId], references: [id])
   mrs                     User[]            @relation("ABM_MRs")
   company                 Company           @relation(fields: [companyId], references: [id])
+  UserWorkingArea         UserWorkingArea[]
 }
 
 model Address {
@@ -142,39 +144,41 @@ model Chemist {
 }
 
 model DoctorCompany {
-  id              Int               @id @default(autoincrement())
-  doctorId        Int
-  companyId       Int
-  email           String?
-  phone           String?
-  dob             String?
-  anniversary     String?
-  approxTarget    Int?
-  DailyCallReport DailyCallReport[]
-  DailyPlanDoctor DailyPlanDoctor[]
-  doctorChemist   DoctorChemist[]
-  company         Company           @relation(fields: [companyId], references: [id])
-  doctor          Doctor            @relation(fields: [doctorId], references: [id])
-  DoctorProduct   DoctorProduct[]
+  id                       Int                        @id @default(autoincrement())
+  doctorId                 Int
+  companyId                Int
+  email                    String?
+  phone                    String?
+  dob                      String?
+  anniversary              String?
+  approxTarget             Int?
+  DailyCallReport          DailyCallReport[]
+  DailyPlanDoctor          DailyPlanDoctor[]
+  doctorChemist            DoctorChemist[]
+  company                  Company                    @relation(fields: [companyId], references: [id])
+  doctor                   Doctor                     @relation(fields: [doctorId], references: [id])
+  DoctorCompanyWorkingArea DoctorCompanyWorkingArea[]
+  DoctorProduct            DoctorProduct[]
 
   @@unique([doctorId, companyId])
 }
 
 model ChemistCompany {
-  id               Int                @id @default(autoincrement())
-  chemistId        Int
-  companyId        Int
-  email            String?
-  phone            String?
-  dob              String?
-  anniversary      String?
-  approxTarget     Int?
-  chemist          Chemist            @relation(fields: [chemistId], references: [id])
-  company          Company            @relation(fields: [companyId], references: [id])
-  ChemistProduct   ChemistProduct[]
-  DailyCallReport  DailyCallReport[]
-  DailyPlanChemist DailyPlanChemist[]
-  doctorChemist    DoctorChemist[]
+  id                        Int                         @id @default(autoincrement())
+  chemistId                 Int
+  companyId                 Int
+  email                     String?
+  phone                     String?
+  dob                       String?
+  anniversary               String?
+  approxTarget              Int?
+  chemist                   Chemist                     @relation(fields: [chemistId], references: [id])
+  company                   Company                     @relation(fields: [companyId], references: [id])
+  ChemistCompanyWorkingArea ChemistCompanyWorkingArea[]
+  ChemistProduct            ChemistProduct[]
+  DailyCallReport           DailyCallReport[]
+  DailyPlanChemist          DailyPlanChemist[]
+  doctorChemist             DoctorChemist[]
 
   @@unique([chemistId, companyId])
 }
@@ -408,6 +412,43 @@ model Remindar {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @default(now()) @db.Timestamptz(6)
   User      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "Reminder_userId_fkey")
+}
+
+model WorkingArea {
+  id                        Int                         @id @default(autoincrement())
+  state                     String                      @db.VarChar(255)
+  city                      String                      @db.VarChar(255)
+  district                  String                      @db.VarChar(255)
+  workingArea               String                      @db.VarChar(255)
+  companyId                 Int
+  ChemistCompanyWorkingArea ChemistCompanyWorkingArea[]
+  DoctorCompanyWorkingArea  DoctorCompanyWorkingArea[]
+  UserWorkingArea           UserWorkingArea[]
+  Company                   Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model ChemistCompanyWorkingArea {
+  id               Int             @id @default(autoincrement())
+  chemistCompanyId Int?
+  workingAreaId    Int?
+  ChemistCompany   ChemistCompany? @relation(fields: [chemistCompanyId], references: [id], onDelete: Cascade)
+  WorkingArea      WorkingArea?    @relation(fields: [workingAreaId], references: [id], onDelete: Cascade)
+}
+
+model DoctorCompanyWorkingArea {
+  doctorCompanyId Int?
+  workingAreaId   Int?
+  id              Int            @id @default(autoincrement())
+  DoctorCompany   DoctorCompany? @relation(fields: [doctorCompanyId], references: [id], onDelete: Cascade)
+  WorkingArea     WorkingArea?   @relation(fields: [workingAreaId], references: [id], onDelete: Cascade)
+}
+
+model UserWorkingArea {
+  id            Int          @id @default(autoincrement())
+  userId        Int?
+  workingAreaId Int?
+  User          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  WorkingArea   WorkingArea? @relation(fields: [workingAreaId], references: [id], onDelete: Cascade)
 }
 
 enum CompanySize {

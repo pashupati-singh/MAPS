@@ -36,7 +36,10 @@ export const UserResolver = {
       where: { companyId },
       skip: (page - 1) * limit,
       take: limit,
-      orderBy: { id: "asc" } 
+      orderBy: { id: "asc" },
+      include :{
+        UserWorkingArea: true
+      }
     });
 
     return {

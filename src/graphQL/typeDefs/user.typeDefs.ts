@@ -60,6 +60,12 @@ export const UserTypeDefs = `#graphql
     updatedAt: String
   }
 
+  type UserWorkingArea {
+    id: Int
+    workingAreaId: Int
+    
+  }
+
   type User {
     id: Int!
     companyId: Int!
@@ -72,6 +78,7 @@ export const UserTypeDefs = `#graphql
     isAssigned: Boolean
     status: UserStatus!
     company: Company
+    UserWorkingArea: [UserWorkingArea]
     createdAt: String!
     updatedAt: String!
   }
