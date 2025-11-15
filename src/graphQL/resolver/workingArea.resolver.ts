@@ -200,46 +200,79 @@ export const WorkingAreaResolver = {
       }
     },
 
-    getWorkingAreaData : async (_: any, { companyId }: { companyId?: number }, context: Context) => {
-        try {
-          if(!context || context.authError) {
-            return createResponse(
-              400,
-              false,
-              context?.authError || "Authorization Error"
-            );
-          }
-          if(!companyId) {
-            return createResponse(400, false, "Company ID is required");
-          }
-          const user = await prisma.user.findMany({
-            where: { companyId },
-          })
-          const doctor = await prisma.doctorCompany.findMany({
-            where: { companyId },
-            include : {doctor : true}
-          })
-          const chemist = await prisma.chemistCompany.findMany({
-            where: { companyId },
-            include : {chemist : true}
-          })
+   getWorkingAreaData: async (_: any, { workingAreaId }: { workingAreaId: number }, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(
+        400,
+        false,
+        context?.authError || "Authorization Error"
+      );
+    }
 
-          return {
-  code: 200,
-  success: true,
-  message: "Working area data fetched successfully",
-  data: {
-    user,
-    doctorCompany: doctor,
-    chemistCompany: chemist
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return createResponse(400, false, "Company ID is required");
+    }
+
+    const userWorkingArea = await prisma.userWorkingArea.findMany({
+      where: { workingAreaId }
+    });
+
+    const chemistCompanyWorkingArea = await prisma.chemistCompanyWorkingArea.findMany({
+      where: { workingAreaId }
+    });
+
+    const doctorCompanyWorkingArea = await prisma.doctorCompanyWorkingArea.findMany({
+      where: { workingAreaId }
+    });
+
+    const users = await prisma.user.findMany({
+      where: { companyId },
+    });
+
+    const doctors = await prisma.doctorCompany.findMany({
+      where: { companyId },
+      include: { doctor: true }
+    });
+
+    const chemists = await prisma.chemistCompany.findMany({
+      where: { companyId },
+      include: { chemist: true }
+    });
+
+    const usersWithFlag = users.map(u => ({
+  ...u,
+  isInWorkingArea: userWorkingArea.some(uw => uw.userId === u.id),
+}));
+
+    const doctorsWithFlag = doctors.map(d => ({
+  ...d,
+  isInWorkingArea: doctorCompanyWorkingArea.some(dcwa => dcwa.doctorCompanyId === d.id),
+}));
+
+    const chemistsWithFlag = chemists.map(c => ({
+  ...c,
+  isInWorkingArea: chemistCompanyWorkingArea.some(ccwa => ccwa.chemistCompanyId === c.id),
+}));
+
+    return {
+      code: 200,
+      success: true,
+      message: "Working area data fetched successfully",
+      data: {
+        user: usersWithFlag,
+        doctorCompany: doctorsWithFlag,
+        chemistCompany: chemistsWithFlag
+      }
+    };
+
+  } catch (error: any) {
+    console.error("Error in getUsersByWorkingArea:", error);
+    return createResponse(500, false, error.message);
   }
-}
+},
 
-        } catch (error  :any) {
-          console.error("Error in getUsersByWorkingArea:", error);
-        return createResponse(500, false, error.message);
-        }
-    },
   },
 
   Mutation: {

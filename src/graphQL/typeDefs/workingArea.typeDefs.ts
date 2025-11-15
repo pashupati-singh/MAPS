@@ -94,18 +94,23 @@ type WorkingAreaData {
   data: Data
 }
 
-  type User {
-    companyId: Int!
-    email: String!
-    phone: String!
-    role: UserRole!
-  }
+    extend type User {
+       isInWorkingArea: Boolean!
+    }
+
+    extend type ChemistCompany {
+       isInWorkingArea: Boolean!
+    }
+
+    extend type DoctorCompany {
+       isInWorkingArea: Boolean!
+    }
 
   extend type Query {
     getWorkingAreasByCompanyId(companyId: Int , page: Int , limit: Int): WorkingAreaRelationsResponsePagination!
     getWorkingAreaRelations(workingAreaId: Int!): WorkingAreaRelationsResponse!
     getUsersByWorkingArea(workingAreaId: Int!): UsersByWorkingAreaResponse!
-    getWorkingAreaData(companyId: Int!): WorkingAreaData!
+    getWorkingAreaData(workingAreaId: Int!): WorkingAreaData!
   }
 
   extend type Mutation {
