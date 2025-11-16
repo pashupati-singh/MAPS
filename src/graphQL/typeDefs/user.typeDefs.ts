@@ -131,7 +131,13 @@ export const UserTypeDefs = `#graphql
   }
 
   type Query {
-    getUsers(page: Int, limit: Int): UserResponses!
+     getUsers(
+    page: Int
+    limit: Int
+    search: String         
+    role: UserRole         
+    workingAreaId: Int  
+  ): UserResponses!
     userId(id: Int!): UserResponse!
     getAllUsers(role: UserRole, userId: Int): UserResponses!
   }

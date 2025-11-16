@@ -29,7 +29,11 @@ Query: {
       }
     },
 
-    getProductsByCompany: async (_: any,args: { page?: number; limit?: number , companyId?: number }, context: Context) => {
+    getProductsByCompany: async (
+  _: any,
+  args: { page?: number; limit?: number; companyId?: number; search?: string },
+  context: Context
+) => {
   try {
     if (!context || context.authError) {
       return createResponse(400, false, context.authError || "Authorization Error");
@@ -40,30 +44,43 @@ Query: {
 
     const companyId = context?.user?.companyId || args.companyId;
     const page = args.page && args.page > 0 ? args.page : 1;
-        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const { search } = args;
 
-        const total = await prisma.product.count({
-          where: { companyId },
-        });
-        const lastPage = Math.max(1, Math.ceil(total / limit));
+    // 🔍 build dynamic where clause
+    const where: any = { companyId };
+
+    if (search && search.trim() !== "") {
+      const term = search.trim();
+      where.OR = [
+        { name:  { contains: term, mode: "insensitive" } },
+        { type:  { contains: term, mode: "insensitive" } },
+        { salt:  { contains: term, mode: "insensitive" } },
+      ];
+    }
+
+    const total = await prisma.product.count({ where });
+    const lastPage = Math.max(1, Math.ceil(total / limit));
 
     const products = await prisma.product.findMany({
-      where: { companyId },
+      where,
       skip: (page - 1) * limit,
       take: limit,
+      orderBy: { id: "asc" },
     });
 
-   return {
-     code: 200,
-     success: true,
-     message: "Products fetched successfully",
-     data: products,
-     lastPage
-   };
+    return {
+      code: 200,
+      success: true,
+      message: "Products fetched successfully",
+      data: products,
+      lastPage,
+    };
   } catch (err: any) {
     return createResponse(500, false, err.message, { product: [] });
   }
 },
+
 
 
     getProductsByDoctor: async (_: any, { doctorId }: any, context: Context) => {

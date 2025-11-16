@@ -197,7 +197,13 @@ type UnassignDoctorFromCompanyResponse {
 # ------------------ Queries & Mutations ------------------
 
 extend type Query {
-  doctors(page: Int, limit: Int): DoctorsResponse!
+  doctors(
+  page: Int
+  limit: Int
+  search: String       
+  workingAreaId: Int    
+): DoctorsResponse!
+
   doctor(id: Int!): DoctorResponseId!
 }
 

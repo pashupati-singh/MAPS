@@ -7,61 +7,90 @@ const prisma = new PrismaClient();
 
 export const ChemistResolvers = {
    Query: {
-  chemists: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
-    try {
-      if (!context || context.authError) {
-        return { code: 401, success: false, message: "Unauthorized", chemists: [], lastPage: 0 };
-      }
-      const companyId = context.user?.companyId;
-      if (!companyId) {
-        return { code: 401, success: false, message: "Company not found", chemists: [], lastPage: 0 };
-      }
+ chemists: async (
+  _: any,
+  args: { page?: number; limit?: number; search?: string; workingAreaId?: number },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return { code: 401, success: false, message: "Unauthorized", chemists: [], lastPage: 0 };
+    }
 
-      const page = args.page && args.page > 0 ? args.page : 1;
-      const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const companyId = context.user?.companyId;
+    if (!companyId) {
+      return { code: 401, success: false, message: "Company not found", chemists: [], lastPage: 0 };
+    }
 
-      const totalChemists = await prisma.chemistCompany.count({
-        where: { companyId },
-      });
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
 
-      const lastPage = Math.ceil(totalChemists / limit);
+    const { search, workingAreaId } = args;
 
-      const chemists = await prisma.chemistCompany.findMany({
-        where: { companyId },
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { id: "asc" },
-        include: {
-          chemist: { include: { address: true } }, 
-          doctorChemist: {                         
-            include: {
-              doctorCompany: {
-                include: {
-                  doctor: { include: { address: true } }, 
-                },
+    // 🔍 build dynamic where clause
+    const where: any = { companyId };
+
+    // 1) search by chemist.name OR ChemistCompany.email OR ChemistCompany.phone
+    if (search && search.trim() !== "") {
+      const term = search.trim();
+      where.OR = [
+        { chemist: { name: { contains: term, mode: "insensitive" } } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term, mode: "insensitive" } },
+      ];
+    }
+
+    // 2) filter by workingAreaId via ChemistCompanyWorkingArea relation
+    if (typeof workingAreaId === "number") {
+      where.ChemistCompanyWorkingArea = {
+        some: {
+          workingAreaId,
+        },
+      };
+    }
+
+    const totalChemists = await prisma.chemistCompany.count({ where });
+    const lastPage = Math.ceil(totalChemists / limit) || 1;
+
+    const chemists = await prisma.chemistCompany.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { id: "asc" },
+      include: {
+        chemist: { include: { address: true } },
+        doctorChemist: {
+          include: {
+            doctorCompany: {
+              include: {
+                doctor: { include: { address: true } },
               },
             },
           },
         },
-      });
+        // optional: include working areas if you want them on client
+        ChemistCompanyWorkingArea: true,
+      },
+    });
 
-      return {
-        code: 200,
-        success: true,
-        message: "Chemists fetched successfully",
-        chemists,
-        lastPage,
-      };
-    } catch (err: any) {
-      return {
-        code: 500,
-        success: false,
-        message: err.message,
-        chemists: [],
-        lastPage: 0,
-      };
-    }
-  },
+    return {
+      code: 200,
+      success: true,
+      message: "Chemists fetched successfully",
+      chemists,
+      lastPage,
+    };
+  } catch (err: any) {
+    return {
+      code: 500,
+      success: false,
+      message: err.message,
+      chemists: [],
+      lastPage: 0,
+    };
+  }
+},
+
 
   chemist: async (_: any, { id }: any, context: Context) => {
     try {

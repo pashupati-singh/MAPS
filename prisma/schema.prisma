@@ -245,10 +245,12 @@ model DailyPlan {
   notes                   String?
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
+  workingAreaId           Int?
   dailyCallReports        DailyCallReport[]
   abm                     User?              @relation("ABMDailyPlans", fields: [abmId], references: [id])
   company                 Company            @relation(fields: [companyId], references: [id])
   mr                      User               @relation("MRDailyPlans", fields: [mrId], references: [id])
+  WorkingArea             WorkingArea?       @relation(fields: [workingAreaId], references: [id])
   chemists                DailyPlanChemist[]
   doctors                 DailyPlanDoctor[]
 
@@ -422,6 +424,7 @@ model WorkingArea {
   workingArea               String                      @db.VarChar(255)
   companyId                 Int
   ChemistCompanyWorkingArea ChemistCompanyWorkingArea[]
+  DailyPlan                 DailyPlan[]
   DoctorCompanyWorkingArea  DoctorCompanyWorkingArea[]
   UserWorkingArea           UserWorkingArea[]
   Company                   Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)

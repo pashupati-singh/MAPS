@@ -74,6 +74,7 @@ type Doctor {
     abmId: Int
     doctorCompanyIds: [Int!]!     
     chemistCompanyIds: [Int!]!    
+    workingAreaId: Int
     workTogether: Boolean
     planDate: String!
     notes: String

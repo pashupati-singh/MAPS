@@ -13,7 +13,12 @@ type Mutation {
 
 type Query {
   getProductById(productId: Int!): ProductResponseById!
-  getProductsByCompany( page: Int, limit: Int , companyId: Int): ProductResponsePagination!
+getProductsByCompany(
+  page: Int
+  limit: Int
+  companyId: Int
+  search: String
+): ProductResponsePagination!
   getProductsByDoctor(doctorId: Int!): ProductResponse!
   getProductsByChemist(chemistId: Int!): ProductResponse!
 }

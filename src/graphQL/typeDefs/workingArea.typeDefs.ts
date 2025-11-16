@@ -87,6 +87,14 @@ type Data {
   chemistCompany: [ChemistCompany!]
 }
 
+type UsersByWorkingAreaResponseById {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: [WorkingArea!]
+}
+
+
 type WorkingAreaData {
   code: Int!
   success: Boolean!
@@ -111,6 +119,7 @@ type WorkingAreaData {
     getWorkingAreaRelations(workingAreaId: Int!): WorkingAreaRelationsResponse!
     getUsersByWorkingArea(workingAreaId: Int!): UsersByWorkingAreaResponse!
     getWorkingAreaData(workingAreaId: Int!): WorkingAreaData!
+    getUsersByWorkingAreabyUserId : UsersByWorkingAreaResponseById!
   }
 
   extend type Mutation {

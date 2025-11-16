@@ -258,71 +258,137 @@ export const DailyPlanResolver = {
 
   Mutation: {
     createDailyPlan: async (_: any, { data }: any, context: Context) => {
-      try {
-        if (!context || !context.user) {
-          return createResponse(400, false, "Invalid token or user");
-        }
+  try {
+    if (!context || !context.user) {
+      return createResponse(400, false, "Invalid token or user");
+    }
 
-        const { userId, role } = context.user;
-        if (role !== "MR") {
-          return createResponse(400, false, "Only MRs can create daily plans");
-        }
+    const { userId, role } = context.user;
+    if (role !== "MR") {
+      return createResponse(400, false, "Only MRs can create daily plans");
+    }
 
-        const companyId = context.company?.id;
-        if (!companyId) {
-          return createResponse(400, false, "Company ID is missing");
-        }
+    const companyId = context.company?.id;
+    if (!companyId) {
+      return createResponse(400, false, "Company ID is missing");
+    }
 
-        const { abmId, doctorCompanyIds, chemistCompanyIds, workTogether, planDate, notes } = data;
+    const {
+      abmId,
+      doctorCompanyIds,
+      chemistCompanyIds,
+      workTogether,
+      planDate,
+      notes,
+      workingAreaId,
+    } = data;
 
-        if (!planDate) {
-          return createResponse(400, false, "Plan Date is required");
-        }
-        if(workTogether && !abmId) {
-          return createResponse(400, false, "ABM is required for work together");
-        }
-        if(abmId && !workTogether) {
-          return createResponse(400, false, "If you select ABM, then Request to work with");
-        }
-        const inputDate  = new Date(planDate);
-        const date = new Date(Date.UTC(inputDate.getFullYear(), inputDate.getMonth(), inputDate.getDate()));
-        const existingPlan = await prisma.dailyPlan.findFirst({
-               where: {
-                 mrId: userId,
-                 companyId: companyId,
-                 planDate: date,
-               },
-             });
+    if (!planDate) {
+      return createResponse(400, false, "Plan Date is required");
+    }
+    if (workTogether && !abmId) {
+      return createResponse(400, false, "ABM is required for work together");
+    }
+    if (abmId && !workTogether) {
+      return createResponse(400, false, "If you select ABM, then Request to work with");
+    }
+    if (!workingAreaId) {
+      return createResponse(400, false, "Working area is required");
+    }
 
-             if (existingPlan) {
-              return createResponse(400, false, "You already created a daily plan for this date.");
-             }
-        const newPlan = await prisma.dailyPlan.create({
-          data: {
-            mrId: userId,
-            abmId,
-            companyId,
-            workTogether: workTogether || false,
-            planDate: date,
-            notes,
-            doctors: {
-              create: doctorCompanyIds?.map((doctorCompanyId: number) => ({
-                doctorCompanyId,
-              })) || [],
-            },
-            chemists: {
-              create: chemistCompanyIds?.map((chemistCompanyId: number) => ({
-                chemistCompanyId,
-              })) || [],
-            },
-          },
-        });
-
-        return createResponse(201, true, "Daily plan created successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
+    // 🔹 Parse planDate (supports "dd/mm/yyyy")
+    const toUtcDate = (raw: string): Date => {
+      if (typeof raw !== "string") {
+        throw new Error("Plan Date must be a string");
       }
-    },
+
+      // If in dd/mm/yyyy format
+      if (raw.includes("/")) {
+        const [ddStr, mmStr, yyyyStr] = raw.split("/");
+        const day = Number(ddStr);
+        const month = Number(mmStr); // 1–12
+        const year = Number(yyyyStr);
+
+        if (!day || !month || !year) {
+          throw new Error("Plan Date must be in DD/MM/YYYY format");
+        }
+
+        const d = new Date(Date.UTC(year, month - 1, day));
+
+        // Validate that the date is real (no 31/02, etc.)
+        if (
+          d.getUTCFullYear() !== year ||
+          d.getUTCMonth() !== month - 1 ||
+          d.getUTCDate() !== day
+        ) {
+          throw new Error("Invalid date value");
+        }
+
+        return d;
+      }
+
+      // Fallback: try native Date (ISO, etc.)
+      const d = new Date(raw);
+      if (isNaN(d.getTime())) {
+        throw new Error("Invalid Plan Date");
+      }
+      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    };
+
+    let date: Date;
+    try {
+      date = toUtcDate(planDate);
+    } catch (e: any) {
+      return createResponse(400, false, e.message || "Invalid Plan Date");
+    }
+
+    // Check for existing plan for that MR + date
+    const existingPlan = await prisma.dailyPlan.findFirst({
+      where: {
+        mrId: userId,
+        companyId: companyId,
+        planDate: date,
+      },
+    });
+
+    if (existingPlan) {
+      return createResponse(
+        400,
+        false,
+        "You already created a daily plan for this date."
+      );
+    }
+
+    const newPlan = await prisma.dailyPlan.create({
+      data: {
+        mrId: userId,
+        abmId,
+        companyId,
+        workTogether: workTogether || false,
+        planDate: date,
+        notes,
+        workingAreaId,
+        doctors: {
+          create:
+            doctorCompanyIds?.map((doctorCompanyId: number) => ({
+              doctorCompanyId,
+            })) || [],
+        },
+        chemists: {
+          create:
+            chemistCompanyIds?.map((chemistCompanyId: number) => ({
+              chemistCompanyId,
+            })) || [],
+        },
+      },
+    });
+
+    return createResponse(201, true, "Daily plan created successfully", newPlan);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     updateDailyPlan: async (_: any, { data }: any, context: Context) => {
       try {

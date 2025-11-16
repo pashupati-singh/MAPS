@@ -209,7 +209,13 @@ type UnassignDoctorFromChemistResponse {
 # -----------------------------------------------------------------------------
 
   extend type Query {
-    chemists(page : Int, limit : Int): ChemistsResponse!
+    chemists(
+  page: Int
+  limit: Int
+  search: String       
+  workingAreaId: Int   
+): ChemistsResponse!
+
     chemist(id: Int!): ChemistResponseGet!
   }
 

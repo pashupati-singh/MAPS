@@ -12,7 +12,17 @@ const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
 export const UserResolver = {
      Query: {
- getUsers: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
+getUsers: async (
+  _: any,
+  args: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    workingAreaId?: number;
+  },
+  context: Context
+) => {
   try {
     if (!context || context.authError) {
       return {
@@ -20,7 +30,7 @@ export const UserResolver = {
         success: false,
         message: context?.authError || "Authorization Error",
         data: [],
-        lastPage: 0
+        lastPage: 0,
       };
     }
 
@@ -28,38 +38,56 @@ export const UserResolver = {
     const page = args.page && args.page > 0 ? args.page : 1;
     const limit = args.limit && args.limit > 0 ? args.limit : 10;
 
-    const totalUsers = await prisma.user.count({ where: { companyId } });
+    const { search, role, workingAreaId } = args;
+    const where: any = { companyId };
 
-    const lastPage = Math.ceil(totalUsers / limit);
+    if (search && search.trim() !== "") {
+      const term = search.trim();
+      where.OR = [
+        { name: { contains: term, mode: "insensitive" } },
+        { email: { contains: term, mode: "insensitive" } },
+      ];
+    }
+    if (role) {
+      where.role = role;
+    }
+    if (typeof workingAreaId === "number") {
+      where.UserWorkingArea = {
+        some: {
+          workingAreaId,
+        },
+      };
+    }
 
+    const totalUsers = await prisma.user.count({ where });
+    const lastPage = Math.ceil(totalUsers / limit) || 1;
     const users = await prisma.user.findMany({
-      where: { companyId },
+      where,
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { id: "asc" },
-      include :{
-        UserWorkingArea: true
-      }
+      include: {
+        UserWorkingArea: true,
+      },
     });
-
     return {
       code: 200,
       success: true,
       message: "Users fetched successfully",
       data: users,
-      lastPage
+      lastPage,
     };
-
   } catch (err: any) {
     return {
       code: 500,
       success: false,
       message: err.message,
       data: [],
-      lastPage: 0
+      lastPage: 0,
     };
   }
 },
+
 
 getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: Context) => {
   try {
@@ -136,101 +164,6 @@ getAllUsers: async (_: any, args: { role?: string; userId?: number }, context: C
         return createResponse(500, false, err.message);
       }
     },
-
-//  homePage: async (_: any, __: any, context: Context) => {
-//   try {
-//     if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-//     if (!context.user?.userId) return createResponse(400, false, "User authorization required");
-//     if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
-
-//     const userId = context.user.userId;
-//     const companyId = context.user.companyId;
-
-//     const { start, end } = istTodayUtcRange();
-//     const remindars = await prisma.remindar.findMany({
-//       where: { userId, remindAt: { gte: start, lt: end } },
-//       orderBy: { remindAt: "asc" },
-//     });
-
-//     const parts = new Intl.DateTimeFormat("en-GB", {
-//       timeZone: "Asia/Kolkata",
-//       day: "2-digit",
-//       month: "2-digit",
-//     }).formatToParts(new Date());
-//     const day = parts.find(p => p.type === "day")!.value;
-//     const month = parts.find(p => p.type === "month")!.value;
-//     const todayDM = `${day}/${month}`;
-//     const eventsDoctors = await prisma.doctorCompany.findMany({
-//       where: {
-//         companyId,
-//         OR: [
-//           { dob: { startsWith: todayDM } },
-//           { anniversary: { startsWith: todayDM } },
-//         ],
-//       },
-//       include :{doctor: true},
-//       orderBy: { id: "asc" },
-//     });
-
-//     const eventsChemist = await prisma.chemistCompany.findMany({
-//       where: {
-//         companyId,
-//         OR: [
-//           { dob: { startsWith: todayDM } },
-//           { anniversary: { startsWith: todayDM } },
-//         ],
-//       },
-//       include :{chemist: true},
-//       orderBy: { id: "asc" },
-//     });
-
-//     const events = [
-//       ...eventsDoctors.map(d => ({ ...d, __typename: "DoctorCompany" })),
-//       ...eventsChemist.map(c => ({ ...c, __typename: "ChemistCompany" })),
-//     ];
-
-//     const dailyplans = await prisma.dailyPlan.findMany({
-//       where: { companyId , mrId: userId, planDate: { gte: start, lt: end } },
-//       include: {
-//         doctors: {
-//           include: {
-//             DoctorCompany: {
-//               include: {
-//                 doctor: true,
-//                 doctorChemist: true,
-//                 DoctorProduct: true,
-//               },
-//             },
-//           },
-//         },
-//         chemists: {
-//           include: {
-//             ChemistCompany: {
-//               include: {
-//                 chemist: true,
-//                 doctorChemist: true,
-//                 ChemistProduct: true,
-//               },
-//             },
-//           },
-//         },
-//       },
-//     });
-
-//     return {
-//       code: 200,
-//       success: true,
-//       message: "Remindars fetched successfully",
-//       data: {
-//         remindars: remindars ?? [],
-//         events: events ?? [],
-//         dailyplans: dailyplans ?? [],
-//       },
-//     };
-//   } catch (err: any) {
-//     return createResponse(500, false, err.message);
-//   }
-// },
 homePage: async (_: any, __: any, context: Context) => {
   try {
     if (!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");

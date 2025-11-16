@@ -7,11 +7,16 @@ const prisma = new PrismaClient();
 
 export const DoctorResolvers = {
   Query: {
-   doctors: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
+  doctors: async (
+  _: any,
+  args: { page?: number; limit?: number; search?: string; workingAreaId?: number },
+  context: Context
+) => {
   try {
     if (!context || context.authError) {
       return createResponse(401, false, "Unauthorized");
     }
+
     const companyId = context.user?.companyId;
     if (!companyId) {
       return createResponse(401, false, "Company not found");
@@ -20,27 +25,47 @@ export const DoctorResolvers = {
     const page = args.page && args.page > 0 ? args.page : 1;
     const limit = args.limit && args.limit > 0 ? args.limit : 10;
 
-    const totalDoctors = await prisma.doctorCompany.count({
-      where: { companyId },
-    });
-
-    const lastPage = Math.ceil(totalDoctors / limit);
-
+    const { search, workingAreaId } = args;
+    const where: any = { companyId };
+    if (search && search.trim() !== "") {
+      const term = search.trim();
+      where.OR = [
+        { doctor: { name: { contains: term, mode: "insensitive" } } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term, mode: "insensitive" } },
+      ];
+    }
+    if (typeof workingAreaId === "number") {
+      where.DoctorCompanyWorkingArea = {
+        some: {
+          workingAreaId,
+        },
+      };
+    }
+    const totalDoctors = await prisma.doctorCompany.count({ where });
+    const lastPage = Math.ceil(totalDoctors / limit) || 1;
     const doctors = await prisma.doctorCompany.findMany({
-      where: { companyId },
+      where,
       skip: (page - 1) * limit,
       take: limit,
       orderBy: { id: "asc" },
       include: {
-        doctor: { include: { address: true } },
-          doctorChemist: {
-            include: {
-              chemistCompany: {
-                include: { chemist: { include: { address: true } } }
-        }
-      }
-    }
-  }
+        doctor: {
+          include: { address: true },
+        },
+        doctorChemist: {
+          include: {
+            chemistCompany: {
+              include: {
+                chemist: {
+                  include: { address: true },
+                },
+              },
+            },
+          },
+        },
+        DoctorCompanyWorkingArea: true,
+      },
     });
 
     return {
@@ -54,6 +79,7 @@ export const DoctorResolvers = {
     return createResponse(500, false, err.message, { doctors: [] });
   }
 },
+
 
   doctor: async (_: any, { id }: any, context: Context) => {
   try {

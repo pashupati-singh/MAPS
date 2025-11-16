@@ -199,6 +199,66 @@ export const WorkingAreaResolver = {
         return createResponse(500, false, err.message);
       }
     },
+getUsersByWorkingAreabyUserId: async (
+  _: any,
+  __: any,
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(
+        400,
+        false,
+        context?.authError || "Authorization Error"
+      );
+    }
+
+    // use company either from context.company or user
+    const companyId = context.company?.id ?? context.user?.companyId;
+    const userId = context.user?.userId;
+
+    if (!companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
+    if (!userId) {
+      return createResponse(400, false, "User authorization required");
+    }
+
+    // get ALL working areas for this user
+    const links = await prisma.userWorkingArea.findMany({
+      where: {
+        userId,
+        WorkingArea: {
+          companyId, // make sure the area belongs to this company
+        },
+      },
+      include: {
+        WorkingArea: true,
+      },
+    });
+
+    // extract just the WorkingArea objects
+    const areas =
+      links
+        .map(link => link.WorkingArea)
+        .filter((wa): wa is NonNullable<typeof wa> => wa != null) || [];
+
+    if (areas.length === 0) {
+      return createResponse(404, false, "Working area not found", []);
+    }
+
+    // 👇 IMPORTANT: pass array of WorkingArea to match GraphQL: data: [WorkingArea!]
+    return createResponse(
+      200,
+      true,
+      "Users fetched successfully for working area",
+      areas
+    );
+  } catch (err: any) {
+    console.error("Error in getUsersByWorkingAreabyUserId:", err);
+    return createResponse(500, false, err.message);
+  }
+},
 
    getWorkingAreaData: async (_: any, { workingAreaId }: { workingAreaId: number }, context: Context) => {
   try {
