@@ -38,6 +38,7 @@ model Company {
   ChemistCompany          ChemistCompany[]
   chemistProduct          ChemistProduct[]
   dailyPlan               DailyPlan[]
+  Default                 Default[]
   doctorChemists          DoctorChemist[]
   doctorCompany           DoctorCompany[]
   doctorProduct           DoctorProduct[]
@@ -45,6 +46,7 @@ model Company {
   product                 Product[]
   productTarget           ProductTarget[]
   purchaseHistory         PurchaseHistory[]
+  Request                 Request[]
   sale                    Sale[]
   target                  Target[]
   user                    User[]
@@ -63,40 +65,43 @@ model PurchaseHistory {
 }
 
 model User {
-  id                      Int               @id @default(autoincrement())
-  companyId               Int
-  email                   String            @unique
-  phone                   String            @unique
-  isEmailVerified         Boolean           @default(false)
-  isPhoneVerified         Boolean           @default(false)
-  password                String
-  role                    UserRole
-  status                  UserStatus        @default(ACTIVE)
-  phoneVerificationCode   String?
-  phoneVerificationExpiry DateTime?
-  emailVerificationToken  String?
-  emailVerificationExpiry DateTime?
-  mpin                    String?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-  abmId                   Int?
-  division                String?
-  name                    String?
-  joiningDate             String?
-  dailyCallReportsAsAbm   DailyCallReport[] @relation("ABMReports")
-  dailyCallReportsAsMr    DailyCallReport[] @relation("MRReports")
-  abmDailyPlans           DailyPlan[]       @relation("ABMDailyPlans")
-  mrDailyPlans            DailyPlan[]       @relation("MRDailyPlans")
-  expense                 Expense[]
-  productTarget           ProductTarget[]
-  Remindar                Remindar[]
-  sale                    Sale[]
-  stocks                  Stock[]
-  target                  Target[]
-  abm                     User?             @relation("ABM_MRs", fields: [abmId], references: [id])
-  mrs                     User[]            @relation("ABM_MRs")
-  company                 Company           @relation(fields: [companyId], references: [id])
-  UserWorkingArea         UserWorkingArea[]
+  id                           Int               @id @default(autoincrement())
+  companyId                    Int
+  email                        String            @unique
+  phone                        String            @unique
+  isEmailVerified              Boolean           @default(false)
+  isPhoneVerified              Boolean           @default(false)
+  password                     String
+  role                         UserRole
+  status                       UserStatus        @default(ACTIVE)
+  phoneVerificationCode        String?
+  phoneVerificationExpiry      DateTime?
+  emailVerificationToken       String?
+  emailVerificationExpiry      DateTime?
+  mpin                         String?
+  createdAt                    DateTime          @default(now())
+  updatedAt                    DateTime          @updatedAt
+  abmId                        Int?
+  division                     String?
+  name                         String?
+  joiningDate                  String?
+  dailyCallReportsAsAbm        DailyCallReport[] @relation("ABMReports")
+  dailyCallReportsAsMr         DailyCallReport[] @relation("MRReports")
+  abmDailyPlans                DailyPlan[]       @relation("ABMDailyPlans")
+  mrDailyPlans                 DailyPlan[]       @relation("MRDailyPlans")
+  Default                      Default[]
+  expense                      Expense[]
+  productTarget                ProductTarget[]
+  Remindar                     Remindar[]
+  Request_Request_abmIdToUser  Request[]         @relation("Request_abmIdToUser")
+  Request_Request_userIdToUser Request[]         @relation("Request_userIdToUser")
+  sale                         Sale[]
+  stocks                       Stock[]
+  target                       Target[]
+  abm                          User?             @relation("ABM_MRs", fields: [abmId], references: [id])
+  mrs                          User[]            @relation("ABM_MRs")
+  company                      Company           @relation(fields: [companyId], references: [id])
+  UserWorkingArea              UserWorkingArea[]
 }
 
 model Address {
@@ -390,19 +395,24 @@ model Sale {
 }
 
 model Expense {
-  id          Int             @id @default(autoincrement())
-  userId      Int
-  companyId   Int
-  category    ExpenseCategory
-  description String?
-  amount      Float
-  expenseDate DateTime
-  isApproved  Boolean         @default(false)
-  isCompleted Boolean         @default(false)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  company     Company         @relation(fields: [companyId], references: [id])
-  user        User            @relation(fields: [userId], references: [id])
+  id             Int              @id @default(autoincrement())
+  userId         Int
+  companyId      Int
+  amount         Float
+  ExpenseMonth   DateTime
+  isApproved     Boolean          @default(false)
+  isCompleted    Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  totalTA        Float?
+  totalDA        Float?
+  totalHA        Float?
+  totalCA        Float?
+  totalOA        Float?
+  totalMis       Float?
+  company        Company          @relation(fields: [companyId], references: [id])
+  user           User             @relation(fields: [userId], references: [id])
+  ExpenseDetails ExpenseDetails[]
 }
 
 model Remindar {
@@ -452,6 +462,53 @@ model UserWorkingArea {
   workingAreaId Int?
   User          User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
   WorkingArea   WorkingArea? @relation(fields: [workingAreaId], references: [id], onDelete: Cascade)
+}
+
+model Request {
+  id                        Int      @id @default(autoincrement())
+  userId                    Int?
+  companyId                 Int?
+  requestType               String?
+  name                      String?
+  startDate                 String?
+  endDate                   String?
+  productName               String?
+  abmId                     Int?
+  isApproved                Boolean? @default(false)
+  isReject                  Boolean? @default(false)
+  assoicateDoc              String?
+  remark                    String?
+  User_Request_abmIdToUser  User?    @relation("Request_abmIdToUser", fields: [abmId], references: [id])
+  Company                   Company? @relation(fields: [companyId], references: [id])
+  User_Request_userIdToUser User?    @relation("Request_userIdToUser", fields: [userId], references: [id])
+}
+
+model Default {
+  id        Int      @id @default(autoincrement())
+  ta        Float?
+  da        Float?
+  ha        Float?
+  ca        Float?
+  oa        Float?
+  userId    Int?
+  companyId Int?
+  Company   Company? @relation(fields: [companyId], references: [id])
+  User      User?    @relation(fields: [userId], references: [id])
+}
+
+model ExpenseDetails {
+  id            Int       @id @default(autoincrement())
+  expenseId     Int?
+  ta            Float?
+  da            Float?
+  ha            Float?
+  ca            Float?
+  oa            Float?
+  date          DateTime? @db.Timestamp(6)
+  miscellaneous Float?
+  reason        String?
+  total         Float?
+  Expense       Expense?  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 }
 
 enum CompanySize {

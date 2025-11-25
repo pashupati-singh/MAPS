@@ -199,7 +199,7 @@ export const WorkingAreaResolver = {
         return createResponse(500, false, err.message);
       }
     },
-getUsersByWorkingAreabyUserId: async (
+    getUsersByWorkingAreabyUserId: async (
   _: any,
   __: any,
   context: Context
@@ -258,7 +258,7 @@ getUsersByWorkingAreabyUserId: async (
     console.error("Error in getUsersByWorkingAreabyUserId:", err);
     return createResponse(500, false, err.message);
   }
-},
+    },
 
    getWorkingAreaData: async (_: any, { workingAreaId }: { workingAreaId: number }, context: Context) => {
   try {
