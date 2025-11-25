@@ -153,35 +153,66 @@ export const DefaultResolver = {
 
   Mutation: {
     createDefault: async (_: any, { data }: any, context: Context) => {
-      try {
-        if (!context || !context.user) {
-          return createResponse(400, false, "Invalid token or user");
-        }
-        const companyId = context?.user?.companyId;
-        const userId = context?.user?.userId;
-        if (!companyId) {
-          return createResponse(400, false, "Company ID is missing");
-        }
-        const { ta, da, ha, ca, oa } = data;
+  try {
+    if (!context || !context.user) {
+      return createResponse(400, false, "Invalid token or user");
+    }
 
-        const created = await prisma.default.create({
-          data: {
-            userId,
-            companyId,
-            ta,
-            da,
-            ha,
-            ca,
-            oa,
-          },
-        });
+    const companyId = context?.user?.companyId;
+    const userId = context?.user?.userId;
 
-        return createResponse(201, true, "Default created successfully", created);
-      } catch (err: any) {
-        console.error("Error in createDefault:", err);
-        return createResponse(500, false, err.message);
-      }
-    },
+    if (!companyId) {
+      return createResponse(400, false, "Company ID is missing");
+    }
+
+    const { ta, da, ha, ca, oa } = data;
+
+    // 1) Check if a record already exists for this user + company
+    const existing = await prisma.default.findFirst({
+      where: {
+        userId,
+        companyId,
+      },
+    });
+
+    // 2) If it exists → UPDATE
+    if (existing) {
+      const updated = await prisma.default.update({
+        where: {
+          id: existing.id, // assuming `id` is the primary key
+        },
+        data: {
+          ta,
+          da,
+          ha,
+          ca,
+          oa,
+        },
+      });
+
+      return createResponse(200, true, "Default updated successfully", updated);
+    }
+
+    // 3) If it doesn’t exist → CREATE
+    const created = await prisma.default.create({
+      data: {
+        userId,
+        companyId,
+        ta,
+        da,
+        ha,
+        ca,
+        oa,
+      },
+    });
+
+    return createResponse(201, true, "Default created successfully", created);
+  } catch (err: any) {
+    console.error("Error in createDefault:", err);
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     updateDefault: async (_: any, { data }: any, context: Context) => {
       try {
