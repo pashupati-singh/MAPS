@@ -127,9 +127,8 @@ export const DefaultResolver = {
         if (!userId) {
           return createResponse(400, false, "User ID is required");
         }
-
-        const record = await prisma.default.findUnique({
-          where: { id: userId },
+        const record = await prisma.default.findFirst({
+          where: { userId },
         });
 
         if (!record) {
@@ -144,7 +143,7 @@ export const DefaultResolver = {
           return createResponse(403, false, "You are not authorised to view this record");
         }
 
-        return createResponse(200, true, "Default fetched successfully", record);
+        return { code: 200, success: true, message: "Default fetched successfully", data: record}
       } catch (err: any) {
         console.error("Error in getDefaultByUserId:", err);
         return createResponse(500, false, err.message);
