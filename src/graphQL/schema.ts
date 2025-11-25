@@ -19,6 +19,8 @@ import { WorkingAreaTypeDefs } from './typeDefs/workingArea.typeDefs';
 import { WorkingAreaResolver } from './resolver/workingArea.resolver';
 import { DefaultResolver } from './resolver/default.resolver';
 import { DefaultTypeDefs } from './typeDefs/default.typeDefs';
+import { ExpenseTypeDefs } from './typeDefs/expense.typeDefs';
+import { ExpenseResolvers } from './resolver/expense.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -31,7 +33,8 @@ export const typeDefs = mergeTypeDefs([
     DailyCallReportTypeDefs,
     RemindarTypeDefs,
     WorkingAreaTypeDefs,
-    DefaultTypeDefs
+    DefaultTypeDefs,
+    ExpenseTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -44,6 +47,7 @@ export const resolvers = mergeResolvers([
     DailyCallReportResolver,
     RemindarResolver,
     WorkingAreaResolver,
-    DefaultResolver
+    DefaultResolver,
+    ExpenseResolvers
 
 ]);
