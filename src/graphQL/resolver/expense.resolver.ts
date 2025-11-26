@@ -6,6 +6,11 @@ import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
 const prisma = new PrismaClient();
 
 export const ExpenseResolvers = {
+  Expense: {
+    details(parent: any) {
+      return parent.ExpenseDetails ?? [];
+    },
+  },
   Query: {
     async getExpenseById(_: any, { id }: { id: number }, context: Context) {
       if (!context?.user) return createResponse(400, false, "User not authenticated");
@@ -18,8 +23,6 @@ export const ExpenseResolvers = {
       if (!expense) {
         return createResponse(404, false, "Expense not found");
       }
-
-      // Optional: auth check – user only sees their own or company’s
       const companyId = context.company?.id || context.user.companyId;
       if (!companyId || expense.companyId !== companyId) {
         return createResponse(403, false, "Not authorised to view this expense");
@@ -27,18 +30,75 @@ export const ExpenseResolvers = {
 
       return createResponse(200, true, "Expense fetched successfully", expense);
     },
+
+     async getExpenseByMonths(
+  _: any,
+  { dates }: { dates: string[] },
+  context: Context
+) {
+  try {
+    if (!context?.user) {
+      return createResponse(400, false, "User not authenticated");
+    }
+
+    const userId = context.user.userId;
+    const companyId = context.company?.id || context.user.companyId;
+
+    if (!companyId) {
+      return createResponse(400, false, "Company ID missing");
+    }
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return createResponse(400, false, "dates array is required");
+    }
+
+    // Convert each date string (dd/mm/yyyy) to month-start Date (same as createExpense)
+    const monthStarts = dates.map((dStr) => {
+      const dt = toUtcMidnight(dStr);
+      const year = dt.getUTCFullYear();
+      const month = dt.getUTCMonth(); // 0–11
+      return new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+    });
+
+    // 👇 IMPORTANT: findMany instead of findFirst
+    const expenses = await prisma.expense.findMany({
+      where: {
+        userId,
+        companyId,
+        ExpenseMonth: { in: monthStarts },
+      },
+      include: {
+        ExpenseDetails: true,
+      },
+      orderBy: {
+        ExpenseMonth: "asc", // or "desc" if you prefer
+      },
+    });
+
+    if (!expenses || expenses.length === 0) {
+      return createResponse(
+        404,
+        false,
+        "No expenses found for the given months"
+      );
+    }
+
+    // Now data is an ARRAY
+    return {
+      code: 200,
+      success: true,
+      message: "Expenses fetched successfully",
+      data: expenses,
+    };
+  } catch (err: any) {
+    console.error("Error in getExpenseByMonths:", err);
+    return createResponse(500, false, err.message);
+  }
+},
+
   },
 
   Mutation: {
-    /**
-     * CREATE / ADD EXPENSE DATA
-     * - userId & companyId from context
-     * - Input: ta, da, ha, ca, oa, miscellaneous, reason, dates[]
-     * - 1) determine month from dates[0]
-     * - 2) if Expense for that month already exists → update totals
-     *    else create new Expense row
-     * - 3) create ExpenseDetails rows for EACH date using toUtcMidnight
-     */
     async createExpense(_: any, { data }: any, context: Context) {
       try {
         if (!context?.user) return createResponse(400, false, "User not authenticated");
@@ -172,10 +232,6 @@ export const ExpenseResolvers = {
       }
     },
 
-    /**
-     * Mark Expense as completed (isCompleted = true)
-     * - input: expenseId
-     */
     async completeExpense(_: any, { expenseId }: { expenseId: number }, context: Context) {
       try {
         if (!context?.user) return createResponse(400, false, "User not authenticated");
@@ -212,13 +268,6 @@ export const ExpenseResolvers = {
       }
     },
 
-    /**
-     * Approve Expense (isApproved = true)
-     * - input: expenseId
-     * - same role logic as you already had:
-     *   MR → ABM approves
-     *   ABM → ADMIN approves
-     */
     async approveExpense(_: any, { expenseId }: { expenseId: number }, context: Context) {
       try {
         if (!context?.user) return createResponse(400, false, "User not authenticated");
@@ -260,11 +309,6 @@ export const ExpenseResolvers = {
       }
     },
 
-    /**
-     * Update ONE ExpenseDetails row
-     * - input: expenseDetailsId + partial fields
-     * - recalc deltas and update Expense totals accordingly
-     */
     async updateExpenseDetails(_: any, { data }: any, context: Context) {
       try {
         if (!context?.user) return createResponse(400, false, "User not authenticated");
@@ -367,10 +411,6 @@ updateDetailData.total = newTotal;   // 👈 always keep total in sync
       }
     },
 
-    /**
-     * Delete multiple ExpenseDetails by IDs
-     * - subtract their values from Expense totals BEFORE delete
-     */
     async deleteExpenseDetails(
       _: any,
       { expenseDetailsIds }: { expenseDetailsIds: number[] },

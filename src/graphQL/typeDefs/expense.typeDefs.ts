@@ -3,7 +3,7 @@ export const ExpenseTypeDefs = `#graphql
     id: Int!
     userId: Int!
     companyId: Int!
-    ExpenseMonth: String!       # mm/yyyy or ISO date string
+    ExpenseMonth: String!      
     totalTA: Float!
     totalDA: Float!
     totalHA: Float!
@@ -19,8 +19,8 @@ export const ExpenseTypeDefs = `#graphql
   }
 
   type ExpenseDetails {
-  id: Int!
-  expenseId: Int!
+  id: Int
+  expenseId: Int
   ta: Float
   da: Float
   ha: Float
@@ -28,8 +28,8 @@ export const ExpenseTypeDefs = `#graphql
   oa: Float
   miscellaneous: Float
   reason: String
-  date: String!
-  total: Float!  
+  date: String
+  total: Float
 }
 
   input CreateExpenseInput {
@@ -40,7 +40,7 @@ export const ExpenseTypeDefs = `#graphql
     oa: Float!
     miscellaneous: Float
     reason: String
-    dates: [String!]!   # ["dd/mm/yyyy", "dd/mm/yyyy", ...]
+    dates: [String!]!
   }
 
   input UpdateExpenseDetailsInput {
@@ -61,8 +61,16 @@ export const ExpenseTypeDefs = `#graphql
     data: Expense
   }
 
+  type ExpenseListResponse {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: [Expense!]!
+}
+
   type Query {
     getExpenseById(id: Int!): ExpenseResponse!
+    getExpenseByMonths(dates: [String!]!): ExpenseListResponse!
   }
 
   type Mutation {
