@@ -191,10 +191,16 @@ export const UserTypeDefs = `#graphql
     notes: String
   }
 
+  type QuickAction {
+    id: Int!
+    quickAction: JSON!
+  }
+
   type HomePageData {
-    remindars: [Remindar!]!     # [] if none
-    events: [EventParty!]!      # [] if none (DoctorCompany | ChemistCompany), includes 'type'
-    dailyplans: [DailyPlan!]!   # [] if none
+    remindars: [Remindar!]!     
+    events: [EventParty!]!      
+    dailyplans: [DailyPlan!]!  
+    quickactions: QuickAction
   }
 
   type HomePageResponse {
@@ -204,7 +210,6 @@ export const UserTypeDefs = `#graphql
     data: HomePageData
   }
 
-  # Upcoming events (tomorrow -> +10 days). Same structure: just a list of EventParty with 'type'.
   type UpcomingEventsData {
     events: [EventParty!]!
   }

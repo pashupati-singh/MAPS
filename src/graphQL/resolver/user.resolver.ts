@@ -179,7 +179,6 @@ homePage: async (_: any, __: any, context: Context) => {
       orderBy: { remindAt: "asc" },
     });
 
-    // Build today's DD/MM in IST
     const parts = new Intl.DateTimeFormat("en-GB", {
       timeZone: "Asia/Kolkata",
       day: "2-digit",
@@ -213,7 +212,6 @@ homePage: async (_: any, __: any, context: Context) => {
       orderBy: { id: "asc" },
     });
 
-    // ➜ ONLY CHANGE: add `type` on each item, keep structure & __typename
     const doctorEvents = eventsDoctors.map(d => {
       const isBirthday = d.dob?.startsWith(todayDM);
       const isAnniv = d.anniversary?.startsWith(todayDM);
@@ -258,6 +256,11 @@ homePage: async (_: any, __: any, context: Context) => {
       },
     });
 
+
+    const actions = await prisma.quickAction.findFirst({
+          where: { userId, companyId },
+        });
+
     return {
       code: 200,
       success: true,
@@ -266,6 +269,7 @@ homePage: async (_: any, __: any, context: Context) => {
         remindars: remindars ?? [],
         events: events ?? [],     
         dailyplans: dailyplans ?? [],
+        quickactions : actions?? null,
       },
     };
   } catch (err: any) {

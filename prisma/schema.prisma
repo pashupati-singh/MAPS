@@ -46,6 +46,7 @@ model Company {
   product                 Product[]
   productTarget           ProductTarget[]
   purchaseHistory         PurchaseHistory[]
+  QuickAction             QuickAction[]
   Request                 Request[]
   sale                    Sale[]
   target                  Target[]
@@ -92,6 +93,7 @@ model User {
   Default                      Default[]
   expense                      Expense[]
   productTarget                ProductTarget[]
+  QuickAction                  QuickAction[]
   Remindar                     Remindar[]
   Request_Request_abmIdToUser  Request[]         @relation("Request_abmIdToUser")
   Request_Request_userIdToUser Request[]         @relation("Request_userIdToUser")
@@ -509,6 +511,15 @@ model ExpenseDetails {
   reason        String?
   total         Float?
   Expense       Expense?  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+}
+
+model QuickAction {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  companyId   Int?
+  quickAction Json?
+  Company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  User        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum CompanySize {
