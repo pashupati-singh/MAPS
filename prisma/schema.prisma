@@ -480,6 +480,8 @@ model Request {
   isReject                  Boolean? @default(false)
   assoicateDoc              String?
   remark                    String?
+  associates                String[] @default([])
+  requestedDate             DateTime @default(now()) @db.Timestamptz(6)
   User_Request_abmIdToUser  User?    @relation("Request_abmIdToUser", fields: [abmId], references: [id])
   Company                   Company? @relation(fields: [companyId], references: [id])
   User_Request_userIdToUser User?    @relation("Request_userIdToUser", fields: [userId], references: [id])

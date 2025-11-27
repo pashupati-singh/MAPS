@@ -26,11 +26,12 @@ export const RequestResolver = {
         if (!companyId) {
           return createResponse(400, false, "Company authorization required");
         }
+
         const where: any = { companyId };
+
         if (userId && role === "MR") {
           where.userId = userId;
-        }
-        else if (userId && role === "ABM") {
+        } else if (userId && role === "ABM") {
           where.abmId = userId;
         }
 
@@ -64,150 +65,166 @@ export const RequestResolver = {
 
   Mutation: {
     createRequest: async (_: any, { data }: any, context: Context) => {
-  try {
-    if (!context || !context.user) {
-      return createResponse(400, false, "Invalid token or user");
-    }
+      try {
+        if (!context || !context.user) {
+          return createResponse(400, false, "Invalid token or user");
+        }
 
-    const { userId, role, companyId: userCompanyId } = context.user;
-    const companyId = context.company?.id || userCompanyId;
+        const { userId, role, companyId: userCompanyId } = context.user;
+        const companyId = context.company?.id || userCompanyId;
 
-    if (!companyId) {
-      return createResponse(400, false, "Company ID is missing");
-    }
+        if (!companyId) {
+          return createResponse(400, false, "Company ID is missing");
+        }
 
-    if (role !== "MR") {
-      return createResponse(400, false, "Only MRs can create requests");
-    }
+        if (role !== "MR") {
+          return createResponse(400, false, "Only MRs can create requests");
+        }
 
-    const {
-      abmId,
-      requestType,
-      name,
-      startDate,
-      endDate,
-      productName,
-      assoicateDoc,
-      remark,
-    } = data;
+        const {
+          requestType,
+          name,
+          startDate,
+          endDate,
+          productName,
+          assoicateDoc,
+          remark,
+          associates, 
+        } = data;
 
-    if (!requestType || !name || !startDate || !endDate) {
-      return createResponse(400, false, "requestType, name, startDate, endDate are required");
-    }
-
-    if (abmId) {
-      const abmUser = await prisma.user.findFirst({
-        where: { id: abmId, companyId, role: "ABM" },
+        if (!requestType) {
+          return createResponse(
+            400,
+            false,
+            "request Type is required"
+          );
+        }
+      const abmId = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { abmId: true },
       });
-      if (!abmUser) {
-        return createResponse(400, false, "Invalid ABM selected");
+      if(!abmId){
+        return createResponse(400, false, "ABM ID is missing");
       }
-    }
 
-    const newRequest = await prisma.request.create({
-      data: {
-        userId,
-        companyId,
-        abmId: abmId || null,
-        requestType,
-        name,
-        startDate,
-        endDate,
-        productName: productName || null,
-        assoicateDoc: assoicateDoc || null,
-        remark: remark || null,
-      },
-    });
+        const newRequest = await prisma.request.create({
+          data: {
+            userId,
+            companyId,
+            abmId: abmId.abmId,
+            requestType,
+            name,
+            startDate,
+            endDate,
+            productName: productName || null,
+            assoicateDoc: assoicateDoc || null,
+            remark: remark || null,
+            associates: associates ?? undefined, 
+          },
+        });
 
-    return createResponse(201, true, "Request created successfully", newRequest);
-  } catch (err: any) {
-    console.error("Error in createRequest:", err);
-    return createResponse(500, false, err.message);
-  }
-},
-
+        return createResponse(201, true, "Request created successfully", newRequest);
+      } catch (err: any) {
+        console.error("Error in createRequest:", err);
+        return createResponse(500, false, err.message);
+      }
+    },
 
     updateRequest: async (_: any, { data }: any, context: Context) => {
-  try {
-    if (!context || !context.user) {
-      return createResponse(400, false, "Invalid token or user");
-    }
+      try {
+        if (!context || !context.user) {
+          return createResponse(400, false, "Invalid token or user");
+        }
 
-    const { userId, role, companyId: userCompanyId } = context.user;
-    const companyId = context.company?.id || userCompanyId;
+        const { userId, role, companyId: userCompanyId } = context.user;
+        const companyId = context.company?.id || userCompanyId;
 
-    if (!companyId) {
-      return createResponse(400, false, "Company authorization required");
-    }
+        if (!companyId) {
+          return createResponse(400, false, "Company authorization required");
+        }
 
-    if (role !== "MR") {
-      return createResponse(400, false, "Only MRs can update requests");
-    }
+        if (role !== "MR") {
+          return createResponse(400, false, "Only MRs can update requests");
+        }
 
-    const {
-      requestId,
-      abmId,
-      requestType,
-      name,
-      startDate,
-      endDate,
-      productName,
-      assoicateDoc,
-      remark,
-    } = data;
+        const {
+          requestId,
+          abmId,
+          requestType,
+          name,
+          startDate,
+          endDate,
+          productName,
+          assoicateDoc,
+          remark,
+          associates, // <-- NEW
+        } = data;
 
-    if (!requestId) {
-      return createResponse(400, false, "Request ID is required");
-    }
+        if (!requestId) {
+          return createResponse(400, false, "Request ID is required");
+        }
 
-    const request = await prisma.request.findUnique({
-      where: { id: requestId },
-    });
+        const request = await prisma.request.findUnique({
+          where: { id: requestId },
+        });
 
-    if (!request) {
-      return createResponse(404, false, "Request not found");
-    }
+        if (!request) {
+          return createResponse(404, false, "Request not found");
+        }
 
-    if (request.companyId !== companyId || request.userId !== userId) {
-      return createResponse(403, false, "You are not authorized to update this request");
-    }
+        if (request.companyId !== companyId || request.userId !== userId) {
+          return createResponse(
+            403,
+            false,
+            "You are not authorized to update this request"
+          );
+        }
 
-    if (request.isApproved || request.isReject) {
-      return createResponse(400, false, "Cannot update a request that is already processed");
-    }
+        if (request.isApproved || request.isReject) {
+          return createResponse(
+            400,
+            false,
+            "Cannot update a request that is already processed"
+          );
+        }
 
-    if (abmId) {
-      const abmUser = await prisma.user.findFirst({
-        where: { id: abmId, companyId, role: "ABM" },
-      });
-      if (!abmUser) {
-        return createResponse(400, false, "Invalid ABM selected");
+        if (abmId) {
+          const abmUser = await prisma.user.findFirst({
+            where: { id: abmId, companyId, role: "ABM" },
+          });
+          if (!abmUser) {
+            return createResponse(400, false, "Invalid ABM selected");
+          }
+        }
+
+        const updatedData: any = {};
+        if (abmId !== undefined) updatedData.abmId = abmId;
+        if (requestType !== undefined) updatedData.requestType = requestType;
+        if (name !== undefined) updatedData.name = name;
+        if (startDate !== undefined) updatedData.startDate = startDate;
+        if (endDate !== undefined) updatedData.endDate = endDate;
+        if (productName !== undefined) updatedData.productName = productName;
+        if (assoicateDoc !== undefined) updatedData.assoicateDoc = assoicateDoc;
+        if (remark !== undefined) updatedData.remark = remark;
+        if (associates !== undefined) updatedData.associates = associates; // <-- NEW
+
+        const updated = await prisma.request.update({
+          where: { id: requestId },
+          data: updatedData,
+        });
+
+        return createResponse(200, true, "Request updated successfully", updated);
+      } catch (err: any) {
+        console.error("Error in updateRequest:", err);
+        return createResponse(500, false, err.message);
       }
-    }
+    },
 
-    const updatedData: any = {};
-    if (abmId !== undefined) updatedData.abmId = abmId;
-    if (requestType !== undefined) updatedData.requestType = requestType;
-    if (name !== undefined) updatedData.name = name;
-    if (startDate !== undefined) updatedData.startDate = startDate;
-    if (endDate !== undefined) updatedData.endDate = endDate;
-    if (productName !== undefined) updatedData.productName = productName;
-    if (assoicateDoc !== undefined) updatedData.assoicateDoc = assoicateDoc;
-    if (remark !== undefined) updatedData.remark = remark;
-
-    const updated = await prisma.request.update({
-      where: { id: requestId },
-      data: updatedData,
-    });
-
-    return createResponse(200, true, "Request updated successfully", updated);
-  } catch (err: any) {
-    console.error("Error in updateRequest:", err);
-    return createResponse(500, false, err.message);
-  }
-},
-
-    deleteRequest: async (_: any, { requestId }: { requestId: number }, context: Context) => {
+    deleteRequest: async (
+      _: any,
+      { requestId }: { requestId: number },
+      context: Context
+    ) => {
       try {
         if (!context || !context.user) {
           return createResponse(400, false, "Invalid token or user");
@@ -237,11 +254,19 @@ export const RequestResolver = {
         }
 
         if (request.companyId !== companyId || request.userId !== userId) {
-          return createResponse(403, false, "You are not authorized to delete this request");
+          return createResponse(
+            403,
+            false,
+            "You are not authorized to delete this request"
+          );
         }
 
         if (request.isApproved || request.isReject) {
-          return createResponse(400, false, "Cannot delete a request that is already processed");
+          return createResponse(
+            400,
+            false,
+            "Cannot delete a request that is already processed"
+          );
         }
 
         await prisma.request.delete({ where: { id: requestId } });
@@ -277,7 +302,11 @@ export const RequestResolver = {
         }
 
         if (isApproved && isReject) {
-          return createResponse(400, false, "Request cannot be both approved and rejected");
+          return createResponse(
+            400,
+            false,
+            "Request cannot be both approved and rejected"
+          );
         }
 
         const request = await prisma.request.findUnique({
@@ -289,11 +318,19 @@ export const RequestResolver = {
         }
 
         if (request.companyId !== companyId) {
-          return createResponse(403, false, "Unauthorized to update this request");
+          return createResponse(
+            403,
+            false,
+            "Unauthorized to update this request"
+          );
         }
 
         if (request.abmId !== userId) {
-          return createResponse(403, false, "You are not authorised to act on this request");
+          return createResponse(
+            403,
+            false,
+            "You are not authorised to act on this request"
+          );
         }
 
         const updatedData: any = {};
@@ -313,7 +350,12 @@ export const RequestResolver = {
           data: updatedData,
         });
 
-        return createResponse(200, true, "Request approval updated successfully", updated);
+        return createResponse(
+          200,
+          true,
+          "Request approval updated successfully",
+          updated
+        );
       } catch (err: any) {
         console.error("Error in updateRequestApproval:", err);
         return createResponse(500, false, err.message);

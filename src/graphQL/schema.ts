@@ -23,6 +23,8 @@ import { ExpenseTypeDefs } from './typeDefs/expense.typeDefs';
 import { ExpenseResolvers } from './resolver/expense.resolver';
 import { QuickActionTypeDefs } from './typeDefs/quickAction.typeDefs';
 import { QuickActionResolver } from './resolver/quickAction.resolver';
+import { RequestTypeDefs } from './typeDefs/request.typeDefs';
+import { RequestResolver } from './resolver/request.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -37,7 +39,8 @@ export const typeDefs = mergeTypeDefs([
     WorkingAreaTypeDefs,
     DefaultTypeDefs,
     ExpenseTypeDefs,
-    QuickActionTypeDefs
+    QuickActionTypeDefs,
+    RequestTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -52,6 +55,7 @@ export const resolvers = mergeResolvers([
     WorkingAreaResolver,
     DefaultResolver,
     ExpenseResolvers,
-    QuickActionResolver
+    QuickActionResolver,
+    RequestResolver
 
 ]);

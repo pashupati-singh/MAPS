@@ -11,6 +11,8 @@ export const RequestTypeDefs = `#graphql
     productName: String
     assoicateDoc: String
     remark: String
+    associates: [String]    
+    requestedDate: String   
     isApproved: Boolean
     isReject: Boolean
     createdAt: String
@@ -20,12 +22,13 @@ export const RequestTypeDefs = `#graphql
   input CreateRequestInput {
     abmId: Int
     requestType: String!
-    name: String!
-    startDate: String!
-    endDate: String!
+    name: String
+    startDate: String
+    endDate: String
     productName: String
     assoicateDoc: String
     remark: String
+    associates: [String!]      
   }
 
   input UpdateRequestInput {
@@ -38,6 +41,7 @@ export const RequestTypeDefs = `#graphql
     productName: String
     assoicateDoc: String
     remark: String
+    associates: [String!]       # <-- NEW
   }
 
   input UpdateRequestApprovalInput {
