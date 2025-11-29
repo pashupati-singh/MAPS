@@ -97,6 +97,7 @@ model User {
   Remindar                     Remindar[]
   Request_Request_abmIdToUser  Request[]         @relation("Request_abmIdToUser")
   Request_Request_userIdToUser Request[]         @relation("Request_userIdToUser")
+  Sale_Sale_abmIdToUser        Sale[]            @relation("Sale_abmIdToUser")
   sale                         Sale[]
   stocks                       Stock[]
   target                       Target[]
@@ -130,7 +131,6 @@ model Doctor {
   updatedAt DateTime        @updatedAt
   address   Address?        @relation(fields: [addressId], references: [id])
   companies DoctorCompany[]
-  sale      Sale[]
   stocks    Stock[]
   target    Target[]
 }
@@ -145,7 +145,6 @@ model Chemist {
   updatedAt DateTime         @updatedAt
   address   Address?         @relation(fields: [addressId], references: [id])
   companies ChemistCompany[]
-  sale      Sale[]
   stocks    Stock[]
   target    Target[]
 }
@@ -166,6 +165,7 @@ model DoctorCompany {
   doctor                   Doctor                     @relation(fields: [doctorId], references: [id])
   DoctorCompanyWorkingArea DoctorCompanyWorkingArea[]
   DoctorProduct            DoctorProduct[]
+  Sale                     Sale[]
 
   @@unique([doctorId, companyId])
 }
@@ -186,6 +186,7 @@ model ChemistCompany {
   DailyCallReport           DailyCallReport[]
   DailyPlanChemist          DailyPlanChemist[]
   doctorChemist             DoctorChemist[]
+  Sale                      Sale[]
 
   @@unique([chemistId, companyId])
 }
@@ -213,7 +214,7 @@ model Product {
   doctors       DoctorProduct[]
   company       Company          @relation(fields: [companyId], references: [id])
   productTarget ProductTarget[]
-  sale          Sale[]
+  SaleItem      SaleItem[]
   stocks        Stock[]
 }
 
@@ -377,23 +378,31 @@ model ProductTarget {
 }
 
 model Sale {
-  id          Int      @id @default(autoincrement())
-  mrId        Int
-  companyId   Int
-  doctorId    Int?
-  chemistId   Int?
-  productId   Int
-  qty         Int
-  price       Float
-  totalAmount Float
-  orderDate   DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  chemist     Chemist? @relation(fields: [chemistId], references: [id])
-  company     Company  @relation(fields: [companyId], references: [id])
-  doctor      Doctor?  @relation(fields: [doctorId], references: [id])
-  mr          User     @relation(fields: [mrId], references: [id])
-  product     Product  @relation(fields: [productId], references: [id])
+  id                    Int             @id @default(autoincrement())
+  mrId                  Int
+  companyId             Int
+  totalAmount           Float?
+  orderDate             DateTime        @default(now())
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  workingAreaId         Int?
+  abmId                 Int?
+  doctorCompanyId       Int?
+  chemistCompanyId      Int?
+  User_Sale_abmIdToUser User?           @relation("Sale_abmIdToUser", fields: [abmId], references: [id])
+  ChemistCompany        ChemistCompany? @relation(fields: [chemistCompanyId], references: [id])
+  company               Company         @relation(fields: [companyId], references: [id])
+  DoctorCompany         DoctorCompany?  @relation(fields: [doctorCompanyId], references: [id])
+  mr                    User            @relation(fields: [mrId], references: [id])
+  WorkingArea           WorkingArea?    @relation(fields: [workingAreaId], references: [id])
+  SaleItem              SaleItem[]
+
+  @@index([mrId])
+  @@index([orderDate])
+  @@index([workingAreaId])
+  @@index([abmId])
+  @@index([chemistCompanyId])
+  @@index([doctorCompanyId])
 }
 
 model Expense {
@@ -438,6 +447,7 @@ model WorkingArea {
   ChemistCompanyWorkingArea ChemistCompanyWorkingArea[]
   DailyPlan                 DailyPlan[]
   DoctorCompanyWorkingArea  DoctorCompanyWorkingArea[]
+  Sale                      Sale[]
   UserWorkingArea           UserWorkingArea[]
   Company                   Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
@@ -481,7 +491,7 @@ model Request {
   assoicateDoc              String?
   remark                    String?
   associates                String[] @default([])
-  requestedDate             DateTime @default(now()) @db.Timestamptz(6)
+  requestedDate             DateTime @default(now()) @db.Timestamp(6)
   User_Request_abmIdToUser  User?    @relation("Request_abmIdToUser", fields: [abmId], references: [id])
   Company                   Company? @relation(fields: [companyId], references: [id])
   User_Request_userIdToUser User?    @relation("Request_userIdToUser", fields: [userId], references: [id])
@@ -522,6 +532,20 @@ model QuickAction {
   quickAction Json?
   Company     Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
   User        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SaleItem {
+  id         Int     @id @default(autoincrement())
+  saleId     Int
+  productId  Int
+  qty        Int
+  mrp        Float
+  lineAmount Float
+  Product    Product @relation(fields: [productId], references: [id])
+  Sale       Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([saleId])
 }
 
 enum CompanySize {

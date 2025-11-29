@@ -118,12 +118,10 @@ export const ExpenseResolvers = {
         if (!dates || !Array.isArray(dates) || dates.length === 0) {
           return createResponse(400, false, "dates array is required");
         }
-
-        // Parse first date to get month/year
         const firstDate = toUtcMidnight(dates[0]);
         const year = firstDate.getUTCFullYear();
-        const month = firstDate.getUTCMonth(); // 0–11
-        const expenseMonthDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0)); // first day of month
+        const month = firstDate.getUTCMonth(); 
+        const expenseMonthDate = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
 
         const count = dates.length;
         const taNum = Number(ta) || 0;
@@ -147,8 +145,6 @@ export const ExpenseResolvers = {
           deltaTotalCA +
           deltaTotalOA +
           deltaTotalMis;
-
-        // Find existing Expense for same user + company + month
         const existingExpense = await prisma.expense.findFirst({
           where: {
             userId,
@@ -160,7 +156,6 @@ export const ExpenseResolvers = {
         let expenseId: number;
 
         if (!existingExpense) {
-          // Create new Expense row
           const createdExpense = await prisma.expense.create({
             data: {
               userId,
@@ -173,12 +168,10 @@ export const ExpenseResolvers = {
               totalOA: deltaTotalOA,
               totalMis: deltaTotalMis,
               amount: deltaAmount,
-              // isApproved & isCompleted default false
             },
           });
           expenseId = createdExpense.id;
         } else {
-          // Update existing Expense totals
           const updatedExpense = await prisma.expense.update({
             where: { id: existingExpense.id },
             data: {
@@ -193,8 +186,6 @@ export const ExpenseResolvers = {
           });
           expenseId = updatedExpense.id;
         }
-
-        // Create ExpenseDetails row for each date
         const detailsData = dates.map((dStr: string) => ({
           expenseId,
           ta: taNum,
@@ -205,7 +196,7 @@ export const ExpenseResolvers = {
           miscellaneous: misNum,
           reason: reason || null,
           date: toUtcMidnight(dStr),
-          total: dayTotal,                 // 👈 new
+          total: dayTotal,                
 
         }));
 

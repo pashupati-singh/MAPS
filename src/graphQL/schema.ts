@@ -25,6 +25,8 @@ import { QuickActionTypeDefs } from './typeDefs/quickAction.typeDefs';
 import { QuickActionResolver } from './resolver/quickAction.resolver';
 import { RequestTypeDefs } from './typeDefs/request.typeDefs';
 import { RequestResolver } from './resolver/request.resolver';
+import { SaleTypeDefs } from './typeDefs/sale.typeDefs';
+import { SaleResolvers } from './resolver/sale.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -40,7 +42,8 @@ export const typeDefs = mergeTypeDefs([
     DefaultTypeDefs,
     ExpenseTypeDefs,
     QuickActionTypeDefs,
-    RequestTypeDefs
+    RequestTypeDefs,
+    SaleTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -56,6 +59,7 @@ export const resolvers = mergeResolvers([
     DefaultResolver,
     ExpenseResolvers,
     QuickActionResolver,
-    RequestResolver
+    RequestResolver,
+    SaleResolvers
 
 ]);
