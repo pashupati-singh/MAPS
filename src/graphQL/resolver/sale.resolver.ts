@@ -265,113 +265,216 @@ export const SaleResolvers = {
         productContributions,
       };
     },
+
+
+     searchDoctorChemist: async (
+      _: any,
+      args: { text: string },
+      context: Context
+    ) => {
+      if (!context || context.authError) {
+        throw new Error(context?.authError || "Authorization Error");
+      }
+      if (!context.user?.userId) {
+        throw new Error("User authorization required");
+      }
+      if (!context.user?.companyId) {
+        throw new Error("Company authorization required");
+      }
+
+      const companyId = context.user.companyId;
+      const { text } = args;
+
+      // 🔍 Search doctor names (DoctorCompany -> Doctor)
+      const doctorCompanies = await prisma.doctorCompany.findMany({
+        where: {
+          companyId,
+          doctor: {
+            name: {
+              contains: text,
+              mode: "insensitive", // case-insensitive search
+            },
+          },
+        },
+        include: {
+          doctor: true,
+        },
+        take: 50, // optional limit
+      });
+
+      const doctors = doctorCompanies.map((dc) => ({
+        doctorCompanyId: dc.id,
+        doctorId: dc.doctorId,
+        name: dc.doctor.name,
+        email: dc.email || null,
+        phone: dc.phone || null,
+      }));
+
+      // 🔍 Search chemist names (ChemistCompany -> Chemist)
+      const chemistCompanies = await prisma.chemistCompany.findMany({
+        where: {
+          companyId,
+          chemist: {
+            name: {
+              contains: text,
+              mode: "insensitive",
+            },
+          },
+        },
+        include: {
+          chemist: true,
+        },
+        take: 50, // optional limit
+      });
+
+      const chemists = chemistCompanies.map((cc) => ({
+        chemistCompanyId: cc.id,
+        chemistId: cc.chemistId,
+        name: cc.chemist.name,
+        email: cc.email || null,
+        phone: cc.phone || null,
+      }));
+
+      return {
+        doctors,
+        chemists,
+      };
+    },
   },
 
   Mutation: {
     createSale: async (
-      _: any,
-      args: { data: any },
-      context: Context
-    ) => {
-      if (!context || context.authError) {
-        return {
-          code: 400,
-          success: false,
-          message: context?.authError || "Authorization Error",
-          data: null,
-        };
-      }
-      if (!context.user?.userId) {
-        return {
-          code: 400,
-          success: false,
-          message: "User authorization required",
-          data: null,
-        };
-      }
-      if (!context.user?.companyId) {
-        return {
-          code: 400,
-          success: false,
-          message: "Company authorization required",
-          data: null,
-        };
-      }
+  _: any,
+  args: { data: any },
+  context: Context
+) => {
+  if (!context || context.authError) {
+    return {
+      code: 400,
+      success: false,
+      message: context?.authError || "Authorization Error",
+      data: null,
+    };
+  }
+  if (!context.user?.userId) {
+    return {
+      code: 400,
+      success: false,
+      message: "User authorization required",
+      data: null,
+    };
+  }
+  if (!context.user?.companyId) {
+    return {
+      code: 400,
+      success: false,
+      message: "Company authorization required",
+      data: null,
+    };
+  }
 
-      const mrId = context.user.userId;
-      const companyId = context.user.companyId;
-      const { data } = args;
+  const mrId = context.user.userId;
+  const companyId = context.user.companyId;
+  const { data } = args;
 
-      const mrUser = await prisma.user.findUnique({
-        where: { id: mrId },
-        select: { abmId: true },
-      });
-      const abmId = mrUser?.abmId ?? null;
+  // get ABM for this MR from User.abmId
+  const mrUser = await prisma.user.findUnique({
+    where: { id: mrId },
+    select: { abmId: true },
+  });
+  const abmId = mrUser?.abmId ?? null;
 
-      const orderDate = toUtcMidnight(data.orderDate);
+  const orderDate = toUtcMidnight(data.orderDate);
 
-      if (data.doctorCompanyId && data.chemistCompanyId) {
-        return {
-          code: 400,
-          success: false,
-          message: "Provide either doctorCompanyId or chemistCompanyId, not both",
-          data: null,
-        };
-      }
+  // only one of doctorCompanyId / chemistCompanyId
+  if (data.doctorCompanyId && data.chemistCompanyId) {
+    return {
+      code: 400,
+      success: false,
+      message: "Provide either doctorCompanyId or chemistCompanyId, not both",
+      data: null,
+    };
+  }
 
-      const itemsInput = data.items || [];
-      if (!Array.isArray(itemsInput) || itemsInput.length === 0) {
-        return {
-          code: 400,
-          success: false,
-          message: "At least one product item is required",
-          data: null,
-        };
-      }
+  // 🔍 derive workingAreaId from mapping tables
+  let workingAreaId: number | null = null;
 
-      const itemsData = itemsInput.map((item: any) => {
-        const qty = Number(item.qty);
-        const mrp = Number(item.mrp);
-        const computedTotal = qty * mrp;
+  if (data.chemistCompanyId) {
+    const chemistArea = await prisma.chemistCompanyWorkingArea.findFirst({
+      where: {
+        chemistCompanyId: data.chemistCompanyId,
+      },
+      select: {
+        workingAreaId: true,
+      },
+    });
+    workingAreaId = chemistArea?.workingAreaId ?? null;
+  } else if (data.doctorCompanyId) {
+    const doctorArea = await prisma.doctorCompanyWorkingArea.findFirst({
+      where: {
+        doctorCompanyId: data.doctorCompanyId,
+      },
+      select: {
+        workingAreaId: true,
+      },
+    });
+    workingAreaId = doctorArea?.workingAreaId ?? null;
+  }
 
-        return {
-          productId: item.productId,
-          qty,
-          mrp,
-          lineAmount: computedTotal,
-        };
-      });
+  const itemsInput = data.items || [];
+  if (!Array.isArray(itemsInput) || itemsInput.length === 0) {
+    return {
+      code: 400,
+      success: false,
+      message: "At least one product item is required",
+      data: null,
+    };
+  }
 
-      const totalAmount = itemsData.reduce(
-        (sum: number, item: any) => sum + item.lineAmount,
-        0
-      );
+  const itemsData = itemsInput.map((item: any) => {
+    const qty = Number(item.qty);
+    const mrp = Number(item.mrp);
+    const computedTotal = qty * mrp;
 
-      const sale = await prisma.sale.create({
-        data: {
-          mrId,
-          abmId,
-          companyId,
-          doctorCompanyId: data.doctorCompanyId ?? null,
-          chemistCompanyId: data.chemistCompanyId ?? null,
-          workingAreaId: data.workingAreaId ?? null,
-          orderDate,
-          totalAmount,
-          SaleItem: {
-            create: itemsData,
-          },
-        },
-        include: {
-          SaleItem: true,
-        },
-      });
+    return {
+      productId: item.productId,
+      qty,
+      mrp,
+      lineAmount: computedTotal,
+    };
+  });
 
-      return {
-        code: 201,
-        success: true,
-        message: "Sale created successfully",
-        data: sale,
-      };
+  const totalAmount = itemsData.reduce(
+    (sum: number, item: any) => sum + item.lineAmount,
+    0
+  );
+
+  const sale = await prisma.sale.create({
+    data: {
+      mrId,
+      abmId,
+      companyId,
+      doctorCompanyId: data.doctorCompanyId ?? null,
+      chemistCompanyId: data.chemistCompanyId ?? null,
+      workingAreaId, // 👈 derived, not from API
+      orderDate,
+      totalAmount,
+      SaleItem: {
+        create: itemsData,
+      },
     },
+    include: {
+      SaleItem: true,
+    },
+  });
+
+  return {
+    code: 201,
+    success: true,
+    message: "Sale created successfully",
+    data: sale,
+  };
+},
+
   },
 };
