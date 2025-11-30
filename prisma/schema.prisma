@@ -260,6 +260,7 @@ model DailyPlan {
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
   workingAreaId           Int?
+  createdBy               String?
   dailyCallReports        DailyCallReport[]
   abm                     User?              @relation("ABMDailyPlans", fields: [abmId], references: [id])
   company                 Company            @relation(fields: [companyId], references: [id])

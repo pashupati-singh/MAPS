@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";
+import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
 
 const prisma = new PrismaClient();
 
@@ -264,17 +265,11 @@ export const DailyPlanResolver = {
     }
 
     const { userId, role } = context.user;
-    if (role !== "MR") {
-      return createResponse(400, false, "Only MRs can create daily plans");
-    }
-
-    const companyId = context.company?.id;
+    const companyId = context.company?.id || context.user?.companyId;
     if (!companyId) {
       return createResponse(400, false, "Company ID is missing");
     }
-
     const {
-      abmId,
       doctorCompanyIds,
       chemistCompanyIds,
       workTogether,
@@ -286,70 +281,65 @@ export const DailyPlanResolver = {
     if (!planDate) {
       return createResponse(400, false, "Plan Date is required");
     }
-    if (workTogether && !abmId) {
-      return createResponse(400, false, "ABM is required for work together");
-    }
-    if (abmId && !workTogether) {
-      return createResponse(400, false, "If you select ABM, then Request to work with");
-    }
+    
     if (!workingAreaId) {
       return createResponse(400, false, "Working area is required");
     }
 
-    // 🔹 Parse planDate (supports "dd/mm/yyyy")
-    const toUtcDate = (raw: string): Date => {
-      if (typeof raw !== "string") {
-        throw new Error("Plan Date must be a string");
-      }
-
-      // If in dd/mm/yyyy format
-      if (raw.includes("/")) {
-        const [ddStr, mmStr, yyyyStr] = raw.split("/");
-        const day = Number(ddStr);
-        const month = Number(mmStr); // 1–12
-        const year = Number(yyyyStr);
-
-        if (!day || !month || !year) {
-          throw new Error("Plan Date must be in DD/MM/YYYY format");
-        }
-
-        const d = new Date(Date.UTC(year, month - 1, day));
-
-        // Validate that the date is real (no 31/02, etc.)
-        if (
-          d.getUTCFullYear() !== year ||
-          d.getUTCMonth() !== month - 1 ||
-          d.getUTCDate() !== day
-        ) {
-          throw new Error("Invalid date value");
-        }
-
-        return d;
-      }
-
-      // Fallback: try native Date (ISO, etc.)
-      const d = new Date(raw);
-      if (isNaN(d.getTime())) {
-        throw new Error("Invalid Plan Date");
-      }
-      return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    };
-
     let date: Date;
     try {
-      date = toUtcDate(planDate);
+      date = toUtcMidnight(planDate);
     } catch (e: any) {
       return createResponse(400, false, e.message || "Invalid Plan Date");
     }
 
-    // Check for existing plan for that MR + date
-    const existingPlan = await prisma.dailyPlan.findFirst({
+    let abmId: any;
+
+    if (role === "MR") {
+     abmId =  await prisma.user.findUnique({
       where: {
-        mrId: userId,
-        companyId: companyId,
-        planDate: date,
+        id: userId,
       },
-    });
+      select: {
+        abmId: true,
+      },
+    })
+    }
+
+    const baseFilter = {
+  companyId,
+  planDate: date,
+};
+
+let filters: any;
+
+if (role === "MR") {
+  filters = {
+    ...baseFilter,
+    mrId: userId,
+    createdBy: "MR",
+  };
+} else if (role === "ABM") {
+  filters = {
+    ...baseFilter,
+    abmId: userId,
+    OR: [
+      { createdBy: "ABM" },
+      {
+        createdBy: "MR",
+        workTogether: true,
+        isWorkTogetherConfirmed: true,
+      },
+    ],
+  };
+} else {
+  return createResponse(400, false, "Only MR and ABM can create daily plans");
+}
+
+const existingPlan = await prisma.dailyPlan.findFirst({
+  where: filters,
+});
+
 
     if (existingPlan) {
       return createResponse(
@@ -361,12 +351,13 @@ export const DailyPlanResolver = {
 
     const newPlan = await prisma.dailyPlan.create({
       data: {
-        mrId: userId,
-        abmId,
+        mrId: role === "MR" ? userId : 0,
+        abmId : role === "MR" ? abmId?.abmId : userId,
         companyId,
         workTogether: workTogether || false,
         planDate: date,
         notes,
+        createdBy : role === "MR" ? "MR" : "ABM",
         workingAreaId,
         doctors: {
           create:
@@ -414,18 +405,6 @@ export const DailyPlanResolver = {
         if (plan.companyId !== companyId) {
           return createResponse(403, false, "You are not authorized to update this daily plan");
         }
-
-        if (plan.mrId !== userId && role !== "MR") {
-          return createResponse(403, false, "You are not authorized to update this daily plan");
-        }
-
-        if(workTogether && !abmId) {
-          return createResponse(400, false, "ABM is required for work together");
-        }
-        if(abmId && !workTogether) {
-          return createResponse(400, false, "If you select ABM, then Request to work with");
-        }
-
         const updatedData: any = {};
         if (notes !== undefined) updatedData.notes = notes;
         if (abmId !== undefined && workTogether) updatedData.abmId = abmId;
@@ -457,88 +436,118 @@ export const DailyPlanResolver = {
             skipDuplicates: true,
           });
         }
-
-        const planWithRelations = await prisma.dailyPlan.findUnique({
-          where: { id: dailyPlanId },
-        });
-
         return createResponse(200, true, "Daily plan updated successfully");
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
     },
 
-    updateDailyPlanByAbm: async (_: any, { data }: any, context: Context) => {
-      try {
-        if (!context || !context.user) {
-          return createResponse(400, false, "Invalid token or user");
-        }
+   updateDailyPlanByAbm: async (_: any, { data }: any, context: Context) => {
+  try {
+    if (!context || !context.user) {
+      return createResponse(400, false, "Invalid token or user");
+    }
 
-        const { companyId, role } = context.user;
-        if (role !== "ABM") {
-          return createResponse(400, false, "Only ABMs can perform this action");
-        }
+    const { companyId, role, userId } = context.user;
+    if (role !== "ABM") {
+      return createResponse(400, false, "Only ABMs can perform this action");
+    }
 
-        const { dailyPlanId, isApproved, isRejected, isWorkTogetherConfirmed } = data;
+    const { dailyPlanId, isApproved, isRejected, isWorkTogetherConfirmed } = data;
 
-        if (!dailyPlanId) {
-          return createResponse(400, false, "Plan ID is required");
-        }
+    if (!dailyPlanId) {
+      return createResponse(400, false, "Plan ID is required");
+    }
 
-        const plan = await prisma.dailyPlan.findUnique({
-          where: { id: dailyPlanId },
-          select: {
-            companyId: true,
-            isApproved: true,
-            isRejected: true,
-            workTogether: true,
-            isWorkTogetherConfirmed: true,
-          },
-        });
+    const plan = await prisma.dailyPlan.findUnique({
+      where: { id: dailyPlanId },
+      select: {
+        id: true,
+        companyId: true,
+        isApproved: true,
+        isRejected: true,
+        workTogether: true,
+        isWorkTogetherConfirmed: true,
+        createdBy: true,
+        planDate: true,
+        abmId: true,
+        mrId: true,
+      },
+    });
 
-        if (!plan) {
-          return createResponse(404, false, "Daily plan not found");
-        }
+    if (!plan) {
+      return createResponse(404, false, "Daily plan not found");
+    }
 
-        if (plan.companyId !== companyId) {
-          return createResponse(403, false, "Unauthorized to update this daily plan");
-        }
+    if (plan.companyId !== companyId) {
+      return createResponse(403, false, "Unauthorized to update this daily plan");
+    }
 
-        if (isApproved && isRejected) {
-          return createResponse(400, false, "Plan cannot be both approved and rejected");
-        }
+    if (isApproved && isRejected) {
+      return createResponse(400, false, "Plan cannot be both approved and rejected");
+    }
 
-        const updatedData: any = {};
+    const updatedData: any = {};
 
-        if (isApproved !== undefined) {
-          updatedData.isApproved = isApproved;
-          if (isApproved) updatedData.isRejected = false;
-        }
+    // ---- Approve / Reject logic (simple & symmetric) ----
+    if (typeof isApproved === "boolean") {
+      updatedData.isApproved = isApproved;
+      if (isApproved) updatedData.isRejected = false;
+    }
 
-        if (isRejected !== undefined) {
-          updatedData.isRejected = isRejected;
-          if (isRejected) updatedData.isApproved = false;
-        }
+    if (typeof isRejected === "boolean") {
+      updatedData.isRejected = isRejected;
+      if (isRejected) updatedData.isApproved = false;
+    }
 
-        if (isWorkTogetherConfirmed !== undefined) {
-          if (plan.workTogether) {
-            updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
-          } else {
-            return createResponse(400, false, "WorkTogether not requested by MR");
-          }
-        }
-
-        const updatedPlan = await prisma.dailyPlan.update({
-          where: { id: dailyPlanId },
-          data: updatedData,
-        });
-
-
-        return createResponse(200, true, "Daily plan updated by ABM successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
+    // ---- WorkTogether confirm logic with extra rule ----
+    if (typeof isWorkTogetherConfirmed === "boolean") {
+      if (!plan.workTogether) {
+        return createResponse(400, false, "WorkTogether not requested by MR");
       }
-    },
+
+      if (isWorkTogetherConfirmed === true) {
+        // 🔥 Check if ABM already has their own plan (createdBy = "ABM") for that day
+        const abmOwnPlan = await prisma.dailyPlan.findFirst({
+          where: {
+            companyId,
+            planDate: plan.planDate,
+            createdBy: "ABM",
+            OR: [
+              { mrId: userId },   // in case ABM plans store mrId = ABM
+              { abmId: userId },  // in case ABM plans store abmId = ABM
+            ],
+          },
+          select: { id: true },
+        });
+
+        if (abmOwnPlan) {
+          return createResponse(
+            400,
+            false,
+            "You already have your own daily plan for this date, so you cannot confirm Work Together."
+          );
+        }
+      }
+
+      updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
+    }
+
+    if (Object.keys(updatedData).length === 0) {
+      return createResponse(400, false, "No valid changes to update");
+    }
+
+    const updatedPlan = await prisma.dailyPlan.update({
+      where: { id: dailyPlanId },
+      data: updatedData,
+    });
+
+    return createResponse(200, true, "Daily plan updated by ABM successfully", updatedPlan);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     deleteDailyPlan: async (_: any, { dailyPlanId }: { dailyPlanId: number }, context: Context) => {
       try {

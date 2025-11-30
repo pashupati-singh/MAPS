@@ -172,6 +172,7 @@ homePage: async (_: any, __: any, context: Context) => {
 
     const userId = context.user.userId;
     const companyId = context.user.companyId;
+    const role = context.user.role;
 
     const { start, end } = istTodayUtcRange();
     const remindars = await prisma.remindar.findMany({
@@ -187,40 +188,42 @@ homePage: async (_: any, __: any, context: Context) => {
     const day = parts.find(p => p.type === "day")!.value;
     const month = parts.find(p => p.type === "month")!.value;
     const todayDM = `${day}/${month}`;
+const doctorAssignmentFilter =
+  role === "ABM"
+    ? { UserDoctor: { some: { abmId: userId } } }
+    : { UserDoctor: { some: { userId } } }; 
 
-    const eventsDoctors = await prisma.doctorCompany.findMany({
-      where: {
-        companyId,
-        UserDoctor: {
-         some: {
-                userId,           
-              },
-         },
-        OR: [
-          { dob: { startsWith: todayDM } },
-          { anniversary: { startsWith: todayDM } },
-        ],
-      },
-      include: { doctor: true },
-      orderBy: { id: "asc" },
-    });
+const chemistAssignmentFilter =
+  role === "ABM"
+    ? { UserChemist: { some: { abmId: userId } } }
+    : { UserChemist: { some: { userId } } };
 
-    const eventsChemist = await prisma.chemistCompany.findMany({
-      where: {
-        companyId,
-         UserChemist: {
-           some: {
-            userId,         
-         },
-        },
-        OR: [
-          { dob: { startsWith: todayDM } },
-          { anniversary: { startsWith: todayDM } },
-        ],
-      },
-      include: { chemist: true },
-      orderBy: { id: "asc" },
-    });
+const eventsDoctors = await prisma.doctorCompany.findMany({
+  where: {
+    companyId,
+    ...doctorAssignmentFilter,
+    OR: [
+      { dob: { startsWith: todayDM } },
+      { anniversary: { startsWith: todayDM } },
+    ],
+  },
+  include: { doctor: true },
+  orderBy: { id: "asc" },
+});
+
+const eventsChemist = await prisma.chemistCompany.findMany({
+  where: {
+    companyId,
+    ...chemistAssignmentFilter,
+    OR: [
+      { dob: { startsWith: todayDM } },
+      { anniversary: { startsWith: todayDM } },
+    ],
+  },
+  include: { chemist: true },
+  orderBy: { id: "asc" },
+});
+
 
     const doctorEvents = eventsDoctors.map(d => {
       const isBirthday = d.dob?.startsWith(todayDM);
@@ -238,8 +241,33 @@ homePage: async (_: any, __: any, context: Context) => {
 
     const events = [...doctorEvents, ...chemistEvents];
 
+const baseDateFilter = {
+  companyId,
+  planDate: { gte: start, lt: end },
+};
+
+const filters =
+  role === "ABM"
+    ? {
+        ...baseDateFilter,
+        abmId: userId,
+        OR: [
+          { createdBy: "ABM" },
+          {
+            createdBy: "MR",
+            workTogether: true,
+            isWorkTogetherConfirmed: true,
+          },
+        ],
+      }
+    : {
+        ...baseDateFilter,
+        mrId: userId,
+        createdBy: "MR",
+      };
+
     const dailyplans = await prisma.dailyPlan.findMany({
-      where: { companyId , mrId: userId, planDate: { gte: start, lt: end } },
+      where: filters,
       include: {
         doctors: {
           include: {
@@ -294,6 +322,8 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
     if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
 
     const companyId = context.user.companyId;
+    const userId = context.user.userId;
+    const role = context.user.role;
     const fmtParts = (d: Date) =>
       new Intl.DateTimeFormat("en-GB", {
         timeZone: "Asia/Kolkata",
@@ -318,17 +348,36 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
       { dob: { startsWith: dm } },
       { anniversary: { startsWith: dm } },
     ]));
-    const eventsDoctors = await prisma.doctorCompany.findMany({
-      where: { companyId, OR: dmOr , UserDoctor: { some: { userId: context.user.userId } } },
-      include: { doctor: true },
-      orderBy: { id: "asc" },
-    });
 
-    const eventsChemist = await prisma.chemistCompany.findMany({
-      where: { companyId, OR: dmOr , UserChemist: { some: { userId: context.user.userId } } },
-      include: { chemist: true },
-      orderBy: { id: "asc" },
-    });
+    const doctorAssignmentFilter =
+  role === "ABM"
+    ? { UserDoctor: { some: { abmId: userId } } }
+    : { UserDoctor: { some: { userId } } };
+
+const chemistAssignmentFilter =
+  role === "ABM"
+    ? { UserChemist: { some: { abmId: userId } } }
+    : { UserChemist: { some: { userId } } };
+
+    const eventsDoctors = await prisma.doctorCompany.findMany({
+  where: {
+    companyId,
+    OR: dmOr,
+    ...doctorAssignmentFilter,  
+  },
+  include: { doctor: true },
+  orderBy: { id: "asc" },
+});
+
+const eventsChemist = await prisma.chemistCompany.findMany({
+  where: {
+    companyId,
+    OR: dmOr,
+    ...chemistAssignmentFilter,
+  },
+  include: { chemist: true },
+  orderBy: { id: "asc" },
+});
     const doctorEvents = eventsDoctors.map(d => {
       const hasBirthday = !!dmList.find(dm => d.dob?.startsWith(dm));
       const hasAnniv   = !!dmList.find(dm => d.anniversary?.startsWith(dm));
@@ -357,8 +406,6 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
     return createResponse(500, false, err.message);
   }
 },
-
-
 
 },
   Mutation: {
@@ -740,8 +787,6 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
     if (!doctorCompanyIds.length && !chemistCompanyIds.length) {
       return createResponse(400, false, "Provide at least one doctorCompanyId or chemistCompanyId");
     }
-
-    // 1. Fetch target user (MR / user) and its ABM
     const targetUser = await prisma.user.findFirst({
       where: { id: userId, companyId },
     });
@@ -749,59 +794,12 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
     if (!targetUser) {
       return createResponse(404, false, "User not found");
     }
-
-    // Optional: enforce MR role
-    // if (targetUser.role !== "MR") {
-    //   return createResponse(400, false, "Target user must be an MR");
-    // }
-
     if (!targetUser.abmId) {
       return createResponse(400, false, "User is not assigned to any ABM");
     }
 
     const abmId = targetUser.abmId;
 
-    // 2. Validate doctors belong to same company
-    if (doctorCompanyIds.length) {
-      const doctors = await prisma.doctorCompany.findMany({
-        where: {
-          id: { in: doctorCompanyIds },
-          companyId,
-        },
-        select: { id: true },
-      });
-
-      if (doctors.length !== doctorCompanyIds.length) {
-        return createResponse(400, false, "One or more doctorCompanyIds are invalid for this company");
-      }
-    }
-
-    // 3. Validate chemists belong to same company
-    if (chemistCompanyIds.length) {
-      const chemists = await prisma.chemistCompany.findMany({
-        where: {
-          id: { in: chemistCompanyIds },
-          companyId,
-        },
-        select: { id: true },
-      });
-
-      if (chemists.length !== chemistCompanyIds.length) {
-        return createResponse(400, false, "One or more chemistCompanyIds are invalid for this company");
-      }
-    }
-
-    // 4. Clear previous assignments for this user + ABM
-    await prisma.$transaction([
-      prisma.userDoctor.deleteMany({
-        where: { userId, abmId },
-      }),
-      prisma.userChemist.deleteMany({
-        where: { userId, abmId },
-      }),
-    ]);
-
-    // 5. Create new UserDoctor rows
     if (doctorCompanyIds.length) {
       await prisma.userDoctor.createMany({
         data: doctorCompanyIds.map((doctorCompanyId: number) => ({
@@ -812,8 +810,6 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
         skipDuplicates: true,
       });
     }
-
-    // 6. Create new UserChemist rows
     if (chemistCompanyIds.length) {
       await prisma.userChemist.createMany({
         data: chemistCompanyIds.map((chemistCompanyId: number) => ({
@@ -824,26 +820,7 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
         skipDuplicates: true,
       });
     }
-
-    // 7. Fetch back assignments with details (optional but nice)
-    const [assignedDoctors, assignedChemists] = await Promise.all([
-      prisma.userDoctor.findMany({
-        where: { userId, abmId },
-        include: {
-          DoctorCompany: {
-            include: { doctor: true },
-          },
-        },
-      }),
-      prisma.userChemist.findMany({
-        where: { userId, abmId },
-        include: {
-          ChemistCompany: {
-            include: { chemist: true },
-          },
-        },
-      }),
-    ]);
+   
 
     return {
       code: 200,
@@ -851,9 +828,7 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
       message: "Doctor and chemist assignments updated successfully",
       data: {
         userId,
-        abmId,
-        doctors: assignedDoctors.map((d) => d.DoctorCompany),
-        chemists: assignedChemists.map((c) => c.ChemistCompany),
+        abmId
       },
     };
   } catch (err: any) {
