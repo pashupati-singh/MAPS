@@ -80,6 +80,84 @@ export const DoctorResolvers = {
   }
 },
 
+doctorsUser: async (
+  _: any,
+  args: { page?: number; limit?: number; search?: string },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(401, false, "Unauthorized");
+    }
+
+    const companyId = context.user?.companyId;
+    const userId = context.user?.userId;
+
+    if (!companyId) {
+      return createResponse(401, false, "Company not found");
+    }
+    if (!userId) {
+      return createResponse(401, false, "User not found");
+    }
+
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+    const { search } = args;
+    const where: any = { companyId };
+
+    if (search && search.trim() !== "") {
+      const term = search.trim();
+      where.OR = [
+        { doctor: { name: { contains: term, mode: "insensitive" } } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term, mode: "insensitive" } },
+      ];
+    }
+    where.UserDoctor = {
+      some: {
+        userId,
+      },
+    };
+
+    const totalDoctors = await prisma.doctorCompany.count({ where });
+    const lastPage = Math.ceil(totalDoctors / limit) || 1;
+
+    const doctors = await prisma.doctorCompany.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { id: "asc" },
+      include: {
+        doctor: {
+          include: { address: true },
+        },
+        doctorChemist: {
+          include: {
+            chemistCompany: {
+              include: {
+                chemist: {
+                  include: { address: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return {
+      code: 200,
+      success: true,
+      message: "Doctors fetched successfully",
+      doctors,
+      lastPage,
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message, { doctors: [] });
+  }
+},
+
 
   doctor: async (_: any, { id }: any, context: Context) => {
   try {

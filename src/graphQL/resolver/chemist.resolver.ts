@@ -27,10 +27,8 @@ export const ChemistResolvers = {
 
     const { search, workingAreaId } = args;
 
-    // 🔍 build dynamic where clause
     const where: any = { companyId };
 
-    // 1) search by chemist.name OR ChemistCompany.email OR ChemistCompany.phone
     if (search && search.trim() !== "") {
       const term = search.trim();
       where.OR = [
@@ -40,7 +38,6 @@ export const ChemistResolvers = {
       ];
     }
 
-    // 2) filter by workingAreaId via ChemistCompanyWorkingArea relation
     if (typeof workingAreaId === "number") {
       where.ChemistCompanyWorkingArea = {
         some: {
@@ -68,8 +65,91 @@ export const ChemistResolvers = {
             },
           },
         },
-        // optional: include working areas if you want them on client
         ChemistCompanyWorkingArea: true,
+      },
+    });
+
+    return {
+      code: 200,
+      success: true,
+      message: "Chemists fetched successfully",
+      chemists,
+      lastPage,
+    };
+  } catch (err: any) {
+    return {
+      code: 500,
+      success: false,
+      message: err.message,
+      chemists: [],
+      lastPage: 0,
+    };
+  }
+},
+
+
+chemistsUser: async (
+  _: any,
+  args: { 
+    page?: number; 
+    limit?: number; 
+    search?: string; 
+  },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return { code: 401, success: false, message: "Unauthorized", chemists: [], lastPage: 0 };
+    }
+
+    const companyId = context.user?.companyId;
+    const  userId = context.user?.userId;
+    if (!companyId) {
+      return { code: 401, success: false, message: "Company not found", chemists: [], lastPage: 0 };
+    }
+
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+    const { search } = args;
+
+    const where: any = { companyId };
+
+    if (search && search.trim() !== "") {
+      const term = search.trim();
+      where.OR = [
+        { chemist: { name: { contains: term, mode: "insensitive" } } },
+        { email: { contains: term, mode: "insensitive" } },
+        { phone: { contains: term, mode: "insensitive" } },
+      ];
+    }
+    if (typeof userId === "number") {
+      where.UserChemist = {
+        some: {
+          userId,
+        },
+      };
+    }
+
+    const totalChemists = await prisma.chemistCompany.count({ where });
+    const lastPage = Math.ceil(totalChemists / limit) || 1;
+
+    const chemists = await prisma.chemistCompany.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { id: "asc" },
+      include: {
+        chemist: { include: { address: true } },
+        doctorChemist: {
+          include: {
+            doctorCompany: {
+              include: {
+                doctor: { include: { address: true } },
+              },
+            },
+          },
+        },
       },
     });
 

@@ -66,45 +66,49 @@ model PurchaseHistory {
 }
 
 model User {
-  id                           Int               @id @default(autoincrement())
-  companyId                    Int
-  email                        String            @unique
-  phone                        String            @unique
-  isEmailVerified              Boolean           @default(false)
-  isPhoneVerified              Boolean           @default(false)
-  password                     String
-  role                         UserRole
-  status                       UserStatus        @default(ACTIVE)
-  phoneVerificationCode        String?
-  phoneVerificationExpiry      DateTime?
-  emailVerificationToken       String?
-  emailVerificationExpiry      DateTime?
-  mpin                         String?
-  createdAt                    DateTime          @default(now())
-  updatedAt                    DateTime          @updatedAt
-  abmId                        Int?
-  division                     String?
-  name                         String?
-  joiningDate                  String?
-  dailyCallReportsAsAbm        DailyCallReport[] @relation("ABMReports")
-  dailyCallReportsAsMr         DailyCallReport[] @relation("MRReports")
-  abmDailyPlans                DailyPlan[]       @relation("ABMDailyPlans")
-  mrDailyPlans                 DailyPlan[]       @relation("MRDailyPlans")
-  Default                      Default[]
-  expense                      Expense[]
-  productTarget                ProductTarget[]
-  QuickAction                  QuickAction[]
-  Remindar                     Remindar[]
-  Request_Request_abmIdToUser  Request[]         @relation("Request_abmIdToUser")
-  Request_Request_userIdToUser Request[]         @relation("Request_userIdToUser")
-  Sale_Sale_abmIdToUser        Sale[]            @relation("Sale_abmIdToUser")
-  sale                         Sale[]
-  stocks                       Stock[]
-  target                       Target[]
-  abm                          User?             @relation("ABM_MRs", fields: [abmId], references: [id])
-  mrs                          User[]            @relation("ABM_MRs")
-  company                      Company           @relation(fields: [companyId], references: [id])
-  UserWorkingArea              UserWorkingArea[]
+  id                                   Int               @id @default(autoincrement())
+  companyId                            Int
+  email                                String            @unique
+  phone                                String            @unique
+  isEmailVerified                      Boolean           @default(false)
+  isPhoneVerified                      Boolean           @default(false)
+  password                             String
+  role                                 UserRole
+  status                               UserStatus        @default(ACTIVE)
+  phoneVerificationCode                String?
+  phoneVerificationExpiry              DateTime?
+  emailVerificationToken               String?
+  emailVerificationExpiry              DateTime?
+  mpin                                 String?
+  createdAt                            DateTime          @default(now())
+  updatedAt                            DateTime          @updatedAt
+  abmId                                Int?
+  division                             String?
+  name                                 String?
+  joiningDate                          String?
+  dailyCallReportsAsAbm                DailyCallReport[] @relation("ABMReports")
+  dailyCallReportsAsMr                 DailyCallReport[] @relation("MRReports")
+  abmDailyPlans                        DailyPlan[]       @relation("ABMDailyPlans")
+  mrDailyPlans                         DailyPlan[]       @relation("MRDailyPlans")
+  Default                              Default[]
+  expense                              Expense[]
+  productTarget                        ProductTarget[]
+  QuickAction                          QuickAction[]
+  Remindar                             Remindar[]
+  Request_Request_abmIdToUser          Request[]         @relation("Request_abmIdToUser")
+  Request_Request_userIdToUser         Request[]         @relation("Request_userIdToUser")
+  Sale_Sale_abmIdToUser                Sale[]            @relation("Sale_abmIdToUser")
+  sale                                 Sale[]
+  stocks                               Stock[]
+  target                               Target[]
+  abm                                  User?             @relation("ABM_MRs", fields: [abmId], references: [id])
+  mrs                                  User[]            @relation("ABM_MRs")
+  company                              Company           @relation(fields: [companyId], references: [id])
+  UserChemist_UserChemist_abmIdToUser  UserChemist[]     @relation("UserChemist_abmIdToUser")
+  UserChemist_UserChemist_userIdToUser UserChemist[]     @relation("UserChemist_userIdToUser")
+  UserDoctor_UserDoctor_abmIdToUser    UserDoctor[]      @relation("UserDoctor_abmIdToUser")
+  UserDoctor_UserDoctor_userIdToUser   UserDoctor[]      @relation("UserDoctor_userIdToUser")
+  UserWorkingArea                      UserWorkingArea[]
 }
 
 model Address {
@@ -166,6 +170,7 @@ model DoctorCompany {
   DoctorCompanyWorkingArea DoctorCompanyWorkingArea[]
   DoctorProduct            DoctorProduct[]
   Sale                     Sale[]
+  UserDoctor               UserDoctor[]
 
   @@unique([doctorId, companyId])
 }
@@ -187,6 +192,7 @@ model ChemistCompany {
   DailyPlanChemist          DailyPlanChemist[]
   doctorChemist             DoctorChemist[]
   Sale                      Sale[]
+  UserChemist               UserChemist[]
 
   @@unique([chemistId, companyId])
 }
@@ -546,6 +552,38 @@ model SaleItem {
 
   @@index([productId])
   @@index([saleId])
+}
+
+model UserChemist {
+  id                            Int             @id @default(autoincrement())
+  userId                        Int?
+  chemistCompanyId              Int?
+  assignedAt                    DateTime        @default(now()) @db.Timestamptz(6)
+  abmId                         Int?
+  User_UserChemist_abmIdToUser  User?           @relation("UserChemist_abmIdToUser", fields: [abmId], references: [id])
+  ChemistCompany                ChemistCompany? @relation(fields: [chemistCompanyId], references: [id], onDelete: Cascade)
+  User_UserChemist_userIdToUser User?           @relation("UserChemist_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chemistCompanyId])
+  @@index([abmId])
+  @@index([chemistCompanyId])
+  @@index([userId])
+}
+
+model UserDoctor {
+  id                           Int            @id @default(autoincrement())
+  userId                       Int?
+  doctorCompanyId              Int?
+  assignedAt                   DateTime       @default(now()) @db.Timestamptz(6)
+  abmId                        Int?
+  User_UserDoctor_abmIdToUser  User?          @relation("UserDoctor_abmIdToUser", fields: [abmId], references: [id])
+  DoctorCompany                DoctorCompany? @relation(fields: [doctorCompanyId], references: [id], onDelete: Cascade)
+  User_UserDoctor_userIdToUser User?          @relation("UserDoctor_userIdToUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, doctorCompanyId])
+  @@index([abmId])
+  @@index([doctorCompanyId])
+  @@index([userId])
 }
 
 enum CompanySize {

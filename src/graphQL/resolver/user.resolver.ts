@@ -191,6 +191,11 @@ homePage: async (_: any, __: any, context: Context) => {
     const eventsDoctors = await prisma.doctorCompany.findMany({
       where: {
         companyId,
+        UserDoctor: {
+         some: {
+                userId,           
+              },
+         },
         OR: [
           { dob: { startsWith: todayDM } },
           { anniversary: { startsWith: todayDM } },
@@ -203,6 +208,11 @@ homePage: async (_: any, __: any, context: Context) => {
     const eventsChemist = await prisma.chemistCompany.findMany({
       where: {
         companyId,
+         UserChemist: {
+           some: {
+            userId,         
+         },
+        },
         OR: [
           { dob: { startsWith: todayDM } },
           { anniversary: { startsWith: todayDM } },
@@ -309,13 +319,13 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
       { anniversary: { startsWith: dm } },
     ]));
     const eventsDoctors = await prisma.doctorCompany.findMany({
-      where: { companyId, OR: dmOr },
+      where: { companyId, OR: dmOr , UserDoctor: { some: { userId: context.user.userId } } },
       include: { doctor: true },
       orderBy: { id: "asc" },
     });
 
     const eventsChemist = await prisma.chemistCompany.findMany({
-      where: { companyId, OR: dmOr },
+      where: { companyId, OR: dmOr , UserChemist: { some: { userId: context.user.userId } } },
       include: { chemist: true },
       orderBy: { id: "asc" },
     });
@@ -710,6 +720,147 @@ upcomingEvents: async (_: any, __: any, context: Context) => {
     return createResponse(500, false, err.message);
   }
 }
+  ,
+  assignDoctorChemistToUser: async (_: any, { data }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context?.authError || "Authorization Error");
+    }
+    if (!context.user?.companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
+
+    const companyId = context.user.companyId;
+    const { userId, doctorCompanyIds = [], chemistCompanyIds = [] } = data;
+
+    if (!userId) {
+      return createResponse(400, false, "User ID is required");
+    }
+
+    if (!doctorCompanyIds.length && !chemistCompanyIds.length) {
+      return createResponse(400, false, "Provide at least one doctorCompanyId or chemistCompanyId");
+    }
+
+    // 1. Fetch target user (MR / user) and its ABM
+    const targetUser = await prisma.user.findFirst({
+      where: { id: userId, companyId },
+    });
+
+    if (!targetUser) {
+      return createResponse(404, false, "User not found");
+    }
+
+    // Optional: enforce MR role
+    // if (targetUser.role !== "MR") {
+    //   return createResponse(400, false, "Target user must be an MR");
+    // }
+
+    if (!targetUser.abmId) {
+      return createResponse(400, false, "User is not assigned to any ABM");
+    }
+
+    const abmId = targetUser.abmId;
+
+    // 2. Validate doctors belong to same company
+    if (doctorCompanyIds.length) {
+      const doctors = await prisma.doctorCompany.findMany({
+        where: {
+          id: { in: doctorCompanyIds },
+          companyId,
+        },
+        select: { id: true },
+      });
+
+      if (doctors.length !== doctorCompanyIds.length) {
+        return createResponse(400, false, "One or more doctorCompanyIds are invalid for this company");
+      }
+    }
+
+    // 3. Validate chemists belong to same company
+    if (chemistCompanyIds.length) {
+      const chemists = await prisma.chemistCompany.findMany({
+        where: {
+          id: { in: chemistCompanyIds },
+          companyId,
+        },
+        select: { id: true },
+      });
+
+      if (chemists.length !== chemistCompanyIds.length) {
+        return createResponse(400, false, "One or more chemistCompanyIds are invalid for this company");
+      }
+    }
+
+    // 4. Clear previous assignments for this user + ABM
+    await prisma.$transaction([
+      prisma.userDoctor.deleteMany({
+        where: { userId, abmId },
+      }),
+      prisma.userChemist.deleteMany({
+        where: { userId, abmId },
+      }),
+    ]);
+
+    // 5. Create new UserDoctor rows
+    if (doctorCompanyIds.length) {
+      await prisma.userDoctor.createMany({
+        data: doctorCompanyIds.map((doctorCompanyId: number) => ({
+          userId,
+          doctorCompanyId,
+          abmId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // 6. Create new UserChemist rows
+    if (chemistCompanyIds.length) {
+      await prisma.userChemist.createMany({
+        data: chemistCompanyIds.map((chemistCompanyId: number) => ({
+          userId,
+          chemistCompanyId,
+          abmId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    // 7. Fetch back assignments with details (optional but nice)
+    const [assignedDoctors, assignedChemists] = await Promise.all([
+      prisma.userDoctor.findMany({
+        where: { userId, abmId },
+        include: {
+          DoctorCompany: {
+            include: { doctor: true },
+          },
+        },
+      }),
+      prisma.userChemist.findMany({
+        where: { userId, abmId },
+        include: {
+          ChemistCompany: {
+            include: { chemist: true },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      code: 200,
+      success: true,
+      message: "Doctor and chemist assignments updated successfully",
+      data: {
+        userId,
+        abmId,
+        doctors: assignedDoctors.map((d) => d.DoctorCompany),
+        chemists: assignedChemists.map((c) => c.ChemistCompany),
+      },
+    };
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
   },
 

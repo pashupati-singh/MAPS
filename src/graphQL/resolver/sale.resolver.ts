@@ -281,25 +281,32 @@ export const SaleResolvers = {
       if (!context.user?.companyId) {
         throw new Error("Company authorization required");
       }
+       
+      const userId = context.user.userId;
+
 
       const companyId = context.user.companyId;
       const { text } = args;
 
-      // 🔍 Search doctor names (DoctorCompany -> Doctor)
       const doctorCompanies = await prisma.doctorCompany.findMany({
         where: {
           companyId,
+          UserDoctor: {
+                some: {
+                  userId,          
+                },
+              },
           doctor: {
             name: {
               contains: text,
-              mode: "insensitive", // case-insensitive search
+              mode: "insensitive", 
             },
           },
         },
         include: {
           doctor: true,
         },
-        take: 50, // optional limit
+        take: 50,
       });
 
       const doctors = doctorCompanies.map((dc) => ({
@@ -310,10 +317,14 @@ export const SaleResolvers = {
         phone: dc.phone || null,
       }));
 
-      // 🔍 Search chemist names (ChemistCompany -> Chemist)
       const chemistCompanies = await prisma.chemistCompany.findMany({
         where: {
           companyId,
+           UserChemist: {
+            some: {
+                 userId,          
+            },
+          },
           chemist: {
             name: {
               contains: text,
@@ -324,13 +335,13 @@ export const SaleResolvers = {
         include: {
           chemist: true,
         },
-        take: 50, // optional limit
+        take: 50, 
       });
 
       const chemists = chemistCompanies.map((cc) => ({
         chemistCompanyId: cc.id,
         chemistId: cc.chemistId,
-        name: cc.chemist.name,
+        name: cc.chemist.name, 
         email: cc.email || null,
         phone: cc.phone || null,
       }));

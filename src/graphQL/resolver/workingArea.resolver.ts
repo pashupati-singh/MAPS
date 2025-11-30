@@ -64,71 +64,100 @@ export const WorkingAreaResolver = {
       }
     },
 
-    getWorkingAreaRelations: async (
-      _: any,
-      { workingAreaId }: { workingAreaId: number },
-      context: Context
-    ) => {
-      try {
-        if (!context || context.authError) {
-          return createResponse(
-            400,
-            false,
-            context?.authError || "Authorization Error"
-          );
-        }
+   getWorkingAreaRelations: async (
+  _: any,
+  { workingAreaId }: { workingAreaId: number },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(
+        400,
+        false,
+        context?.authError || "Authorization Error"
+      );
+    }
 
-        const companyId = context.company?.id || context.user?.companyId;
-        if (!companyId) {
-          return createResponse(400, false, "Company authorization required");
-        }
+    const companyId = context.company?.id || context.user?.companyId;
+    const userId = context.user?.userId; // 👈 add this
 
-        if (!workingAreaId) {
-          return createResponse(400, false, "Working area ID is required");
-        }
-        const area = await prisma.workingArea.findFirst({
-          where: { id: workingAreaId, companyId },
+    if (!companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
+
+    if (!workingAreaId) {
+      return createResponse(400, false, "Working area ID is required");
+    }
+
+    // 👇 build nested where filters for doctor/chemist assignments
+    const doctorCompanyWAWhere: any = {};
+    const chemistCompanyWAWhere: any = {};
+
+    if (typeof userId === "number") {
+      // only DoctorCompanies that are assigned to this user via UserDoctor
+      doctorCompanyWAWhere.DoctorCompany = {
+        UserDoctor: {
+          some: {
+            userId,
+          },
+        },
+      };
+
+      // only ChemistCompanies that are assigned to this user via UserChemist
+      chemistCompanyWAWhere.ChemistCompany = {
+        UserChemist: {
+          some: {
+            userId,
+          },
+        },
+      };
+    }
+
+    const area = await prisma.workingArea.findFirst({
+      where: { id: workingAreaId, companyId },
+      include: {
+        DoctorCompanyWorkingArea: {
+          // 🔥 filter by user assignment (plus working area via this relation)
+          where: doctorCompanyWAWhere,
           include: {
-            DoctorCompanyWorkingArea: {
+            DoctorCompany: {
               include: {
-                DoctorCompany: {
-                  include: {
-                    doctor: true,
-                  },
-                },
-              },
-            },
-            ChemistCompanyWorkingArea: {
-              include: {
-                ChemistCompany: {
-                  include: {
-                    chemist: true,
-                  },
-                },
-              },
-            },
-            UserWorkingArea: {
-              include: {
-                User: true,
+                doctor: true,
               },
             },
           },
-        });
+        },
+        ChemistCompanyWorkingArea: {
+          // 🔥 filter by user assignment (plus working area via this relation)
+          where: chemistCompanyWAWhere,
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+              },
+            },
+          },
+        },
+        UserWorkingArea: {
+          include: {
+            User: true,
+          },
+        },
+      },
+    });
 
-        if (!area) {
-          return createResponse(404, false, "Working area not found");
-        }
+    if (!area) {
+      return createResponse(404, false, "Working area not found");
+    }
 
-        const doctorCompanies =
+    // 👇 these lines stay EXACTLY as you had them
+    const doctorCompanies =
       area.DoctorCompanyWorkingArea?.map((dcwa) => dcwa.DoctorCompany) ?? [];
 
     const chemistCompanies =
-      area.ChemistCompanyWorkingArea?.map(
-        (ccwa) => ccwa.ChemistCompany
-      ) ?? [];
+      area.ChemistCompanyWorkingArea?.map((ccwa) => ccwa.ChemistCompany) ?? [];
 
-    const users =
-      area.UserWorkingArea?.map((uwa) => uwa.User) ?? [];
+    const users = area.UserWorkingArea?.map((uwa) => uwa.User) ?? [];
 
     const data = {
       workingArea: area,
@@ -137,17 +166,18 @@ export const WorkingAreaResolver = {
       users,
     };
 
-        return createResponse(
-          200,
-          true,
-          "Working area relations fetched successfully",
-          data
-        );
-      } catch (err: any) {
-        console.error("Error in getWorkingAreaRelations:", err);
-        return createResponse(500, false, err.message);
-      }
-    },
+    return createResponse(
+      200,
+      true,
+      "Working area relations fetched successfully",
+      data
+    );
+  } catch (err: any) {
+    console.error("Error in getWorkingAreaRelations:", err);
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     getUsersByWorkingArea: async (
       _: any,

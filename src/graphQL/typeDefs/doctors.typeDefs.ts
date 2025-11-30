@@ -203,7 +203,11 @@ extend type Query {
   search: String       
   workingAreaId: Int    
 ): DoctorsResponse!
-
+doctorsUser(
+    page: Int
+    limit: Int
+    search: String
+  ): DoctorsResponse!
   doctor(id: Int!): DoctorResponseId!
 }
 

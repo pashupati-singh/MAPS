@@ -191,6 +191,26 @@ export const UserTypeDefs = `#graphql
     notes: String
   }
 
+    input AssignDoctorChemistToUserInput {
+    userId: Int!
+    doctorCompanyIds: [Int!]
+    chemistCompanyIds: [Int!]
+  }
+  type AssignDoctorChemistData {
+    userId: Int!
+    abmId: Int
+    doctors: [DoctorCompany!]!
+    chemists: [ChemistCompany!]!
+  }
+
+  type AssignDoctorChemistResponse {
+    code: Int!
+    success: Boolean!
+    message: String
+    data: AssignDoctorChemistData
+  }
+
+
   type QuickAction {
     id: Int!
     quickAction: JSON!
@@ -235,5 +255,9 @@ export const UserTypeDefs = `#graphql
     verifyOtp(type: String!, email: String, phone: String, otpOrToken: String!): UserResponse!
     loginUser(email: String!, password: String!): AuthPayload!
     assignMrsToAbm(data: AssignMrsToAbmInput!): UserResponse!
+        assignDoctorChemistToUser(
+      data: AssignDoctorChemistToUserInput!
+    ): AssignDoctorChemistResponse!
+
   }
 `;
