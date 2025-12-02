@@ -70,6 +70,7 @@ export const UserTypeDefs = `#graphql
     id: Int!
     companyId: Int!
     email: String!
+    abmId : Int
     phone: String!
     role: UserRole!
     name: String

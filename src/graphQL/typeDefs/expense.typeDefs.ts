@@ -1,21 +1,21 @@
 export const ExpenseTypeDefs = `#graphql
   type Expense {
     id: Int!
-    userId: Int!
-    companyId: Int!
-    ExpenseMonth: String!      
-    totalTA: Float!
-    totalDA: Float!
-    totalHA: Float!
-    totalCA: Float!
-    totalOA: Float!
-    totalMis: Float!
-    amount: Float!
-    isApproved: Boolean!
-    isCompleted: Boolean!
-    createdAt: String!
-    updatedAt: String!
-    details: [ExpenseDetails!]!
+    userId: Int
+    companyId: Int
+    ExpenseMonth: String   
+    totalTA: Float
+    totalDA: Float
+    totalHA: Float
+    totalCA: Float
+    totalOA: Float
+    totalMis: Float
+    amount: Float
+    isApproved: Boolean
+    isCompleted: Boolean
+    createdAt: String
+    updatedAt: String
+    details: [ExpenseDetails!]
   }
 
   type ExpenseDetails {
@@ -65,7 +65,7 @@ export const ExpenseTypeDefs = `#graphql
   code: Int!
   success: Boolean!
   message: String
-  data: [Expense!]!
+  data: [Expense!]
 }
 
   type Query {

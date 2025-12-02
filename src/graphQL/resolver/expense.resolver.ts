@@ -76,14 +76,14 @@ export const ExpenseResolvers = {
     });
 
     if (!expenses || expenses.length === 0) {
-      return createResponse(
-        404,
-        false,
-        "No expenses found for the given months"
-      );
+      return {
+      code: 200,
+      success: true,
+      message: "Expenses fetched successfully",
+      data: [],
+    }
     }
 
-    // Now data is an ARRAY
     return {
       code: 200,
       success: true,
