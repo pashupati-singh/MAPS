@@ -67,8 +67,7 @@ export const DailyPlanResolver = {
     console.error("Error in getDailyPlansByCompanyId:", err);
     return createResponse(500, false, err.message);
   }
-},
-
+     },
 
     getDailyPlansByMRId: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
       try {
@@ -211,6 +210,7 @@ export const DailyPlanResolver = {
         return createResponse(500, false, err.message);
       }
     },
+
     getDailyPlanById: async (_: any, { id }: { id: number } , context: Context) => {
       try {
         if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
@@ -223,7 +223,7 @@ export const DailyPlanResolver = {
         const plan = await prisma.dailyPlan.findUnique({
           where: { id , companyId },
            include: {
-        doctors: {
+          doctors: {
           include: {
             DoctorCompany: {
               include: {
@@ -245,6 +245,15 @@ export const DailyPlanResolver = {
             },
           },
         },
+        mr: {
+          include: {
+            UserWorkingArea : {
+              include: {
+                WorkingArea : true
+              }
+            }
+          }
+        }
       },
         });
 
@@ -255,6 +264,72 @@ export const DailyPlanResolver = {
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
+    },
+
+    getDailyPlansABMOfMr : async (_: any, __:any , context: Context) => {
+      try {
+        if (!context || context.authError) {
+          return createResponse(400, false, context?.authError || "Authorization Error");
+        }
+        if(!context.user) return createResponse(400, false, "User authorization required");
+        const { userId , role } = context.user;
+        const companyId = context.company?.id;
+        if (!companyId) {
+          return createResponse(400, false, "Company authorization required");
+        }
+        const { start, end } = istTodayUtcRange();
+        const baseDateFilter = {
+               companyId,
+               planDate: { gte: start, lt: end },
+               abmId: userId,
+             };
+       
+      const  dailyPlansOfMRs = await prisma.dailyPlan.findMany({
+        where : baseDateFilter,
+           include: {
+           doctors: {
+            include: {
+             DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
+          },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+        mr: {
+          include: {
+            UserWorkingArea : {
+              include: {
+                WorkingArea : true
+              }
+            }
+          }
+        }
+      },
+    })
+
+     return {
+      code: 200,
+      success: true,
+      message: "Remindars fetched successfully",
+      data:  dailyPlansOfMRs ?? []
+    };
+    }catch (err: any) {
+      return createResponse(500, false, err.message);
+    }
     },
 
   },
@@ -444,7 +519,7 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       }
     },
 
-   updateDailyPlanByAbm: async (_: any, { data }: any, context: Context) => {
+  updateDailyPlanByAbm: async (_: any, { data }: any, context: Context) => {
   try {
     if (!context || !context.user) {
       return createResponse(400, false, "Invalid token or user");
@@ -461,19 +536,16 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       return createResponse(400, false, "Plan ID is required");
     }
 
+    // 🔹 Load the plan + its doctors/chemists (needed to clone)
     const plan = await prisma.dailyPlan.findUnique({
       where: { id: dailyPlanId },
-      select: {
-        id: true,
-        companyId: true,
-        isApproved: true,
-        isRejected: true,
-        workTogether: true,
-        isWorkTogetherConfirmed: true,
-        createdBy: true,
-        planDate: true,
-        abmId: true,
-        mrId: true,
+      include: {
+        doctors: {
+          select: { doctorCompanyId: true },
+        },
+        chemists: {
+          select: { chemistCompanyId: true },
+        },
       },
     });
 
@@ -491,7 +563,7 @@ const existingPlan = await prisma.dailyPlan.findFirst({
 
     const updatedData: any = {};
 
-    // ---- Approve / Reject logic (simple & symmetric) ----
+    // ---- Approve / Reject logic ----
     if (typeof isApproved === "boolean") {
       updatedData.isApproved = isApproved;
       if (isApproved) updatedData.isRejected = false;
@@ -502,23 +574,22 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       if (isRejected) updatedData.isApproved = false;
     }
 
-    // ---- WorkTogether confirm logic with extra rule ----
+    // ---- WorkTogether confirm logic ----
     if (typeof isWorkTogetherConfirmed === "boolean") {
       if (!plan.workTogether) {
         return createResponse(400, false, "WorkTogether not requested by MR");
       }
 
+      updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
+
       if (isWorkTogetherConfirmed === true) {
-        // 🔥 Check if ABM already has their own plan (createdBy = "ABM") for that day
+        // ✅ Optional safety: avoid duplicate ABM plan for that day
         const abmOwnPlan = await prisma.dailyPlan.findFirst({
           where: {
             companyId,
             planDate: plan.planDate,
             createdBy: "ABM",
-            OR: [
-              { mrId: userId },   // in case ABM plans store mrId = ABM
-              { abmId: userId },  // in case ABM plans store abmId = ABM
-            ],
+            abmId: userId,
           },
           select: { id: true },
         });
@@ -527,12 +598,44 @@ const existingPlan = await prisma.dailyPlan.findFirst({
           return createResponse(
             400,
             false,
-            "You already have your own daily plan for this date, so you cannot confirm Work Together."
+            "You already have your own daily plan for this date."
           );
         }
-      }
 
-      updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
+        // ✅ Create a fresh DailyPlan for ABM
+        const newAbmPlan = await prisma.dailyPlan.create({
+          data: {
+            mrId : 0,
+            abmId: userId,
+            companyId,
+            workTogether: plan.workTogether,
+            isApproved: true,
+            isRejected: false,
+            isWorkTogetherConfirmed: true,
+            planDate: plan.planDate,
+            notes: plan.notes ?? undefined,
+            workingAreaId: plan.workingAreaId ?? undefined,
+            createdBy: "ABM",
+
+            // Clone doctors
+            doctors: {
+              create: plan.doctors.map((d) => ({
+                doctorCompanyId: d.doctorCompanyId!,
+              })),
+            },
+
+            // Clone chemists
+            chemists: {
+              create: plan.chemists.map((c) => ({
+                chemistCompanyId: c.chemistCompanyId!,
+              })),
+            },
+          },
+        });
+
+        // You don’t have to return newAbmPlan,
+        // but it's available here if later you want to.
+      }
     }
 
     if (Object.keys(updatedData).length === 0) {
@@ -549,6 +652,7 @@ const existingPlan = await prisma.dailyPlan.findFirst({
     return createResponse(500, false, err.message);
   }
 },
+
 
 
     deleteDailyPlan: async (_: any, { dailyPlanId }: { dailyPlanId: number }, context: Context) => {

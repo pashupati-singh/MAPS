@@ -11,10 +11,43 @@ export const DailyPlanTypeDefs = `#graphql
   planDate: String!
   notes: String
   createdAt: String!
+  mr: User
   updatedAt: String!
   doctors: [DailyPlanDoctor!]!
   chemists: [DailyPlanChemist!]!
 }
+
+type User {
+    id: Int!
+    companyId: Int!
+    email: String!
+    abmId : Int
+    phone: String!
+    role: UserRole!
+    name: String
+    division: String
+    joiningDate: String
+    isAssigned: Boolean
+    status: UserStatus!
+    company: Company
+    UserWorkingArea: [UserWorkingArea!]
+    createdAt: String!
+    updatedAt: String!
+  }
+
+   type WorkingArea {
+  id: Int
+  state: String
+  city: String
+  district: String
+  workingArea: String
+}
+
+  type UserWorkingArea {
+    id: Int
+    workingAreaId: Int
+    WorkingArea: WorkingArea
+  }
 
 type DailyPlanDoctor {
   id: Int!
@@ -110,11 +143,20 @@ type Doctor {
     data: [DailyPlan]
   }
 
+  type DailyPlansForABM {
+    code : Int!
+    success : Boolean!
+    message : String
+    data : [DailyPlan]
+  }
+
   type Query {
     getDailyPlansByCompanyId(page: Int, limit: Int): DailyPlansResponse!
     getDailyPlansByMRId(page: Int, limit: Int): DailyPlansResponse!
     getDailyPlansByABMId(page: Int, limit: Int): DailyPlansResponse!
     getDailyPlanById(id: Int!): DailyPlanResponse!
+
+    getDailyPlansABMOfMr: DailyPlansForABM!
   }
 
   type Mutation {

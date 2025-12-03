@@ -60,21 +60,6 @@ export const UserTypeDefs = `#graphql
     updatedAt: String
   }
 
-  type WorkingArea {
-  id: Int
-  state: String
-  city: String
-  district: String
-  workingArea: String
-}
-
-
-  type UserWorkingArea {
-    id: Int
-    workingAreaId: Int
-    WorkingArea: WorkingArea
-  }
-
   type User {
     id: Int!
     companyId: Int!
@@ -234,7 +219,6 @@ export const UserTypeDefs = `#graphql
     events: [EventParty!]!
     dailyplans: [DailyPlan!]!
     quickactions: QuickAction
-    dailyPlansOfMRs: [DailyPlan!]!   # ⬅️ added for ABM
   }
 
   type HomePageResponse {
