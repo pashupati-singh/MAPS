@@ -60,10 +60,19 @@ export const UserTypeDefs = `#graphql
     updatedAt: String
   }
 
+  type WorkingArea {
+  id: Int
+  state: String
+  city: String
+  district: String
+  workingArea: String
+}
+
+
   type UserWorkingArea {
     id: Int
     workingAreaId: Int
-    
+    WorkingArea: WorkingArea
   }
 
   type User {
@@ -79,7 +88,7 @@ export const UserTypeDefs = `#graphql
     isAssigned: Boolean
     status: UserStatus!
     company: Company
-    UserWorkingArea: [UserWorkingArea]
+    UserWorkingArea: [UserWorkingArea!]
     createdAt: String!
     updatedAt: String!
   }
@@ -132,13 +141,13 @@ export const UserTypeDefs = `#graphql
   }
 
   type Query {
-     getUsers(
-    page: Int
-    limit: Int
-    search: String         
-    role: UserRole         
-    workingAreaId: Int  
-  ): UserResponses!
+    getUsers(
+      page: Int
+      limit: Int
+      search: String
+      role: UserRole
+      workingAreaId: Int
+    ): UserResponses!
     userId(id: Int!): UserResponse!
     getAllUsers(role: UserRole, userId: Int): UserResponses!
   }
@@ -159,7 +168,7 @@ export const UserTypeDefs = `#graphql
     companyId: Int!
     email: String
     phone: String
-    type: String          # "birthday" | "anniversary" | "both"
+    type: String         
     dob: String
     anniversary: String
     approxTarget: Int
@@ -171,7 +180,7 @@ export const UserTypeDefs = `#graphql
     companyId: Int!
     email: String
     phone: String
-    type: String          # "birthday" | "anniversary" | "both"
+    type: String        
     dob: String
     anniversary: String
     approxTarget: Int
@@ -190,13 +199,15 @@ export const UserTypeDefs = `#graphql
     isRejected: Boolean!
     planDate: String!
     notes: String
+    mr: User
   }
 
-    input AssignDoctorChemistToUserInput {
+  input AssignDoctorChemistToUserInput {
     userId: Int!
     doctorCompanyIds: [Int!]
     chemistCompanyIds: [Int!]
   }
+
   type AssignDoctorChemistData {
     userId: Int!
     abmId: Int
@@ -211,6 +222,7 @@ export const UserTypeDefs = `#graphql
     data: AssignDoctorChemistData
   }
 
+  scalar JSON
 
   type QuickAction {
     id: Int!
@@ -218,10 +230,11 @@ export const UserTypeDefs = `#graphql
   }
 
   type HomePageData {
-    remindars: [Remindar!]!     
-    events: [EventParty!]!      
-    dailyplans: [DailyPlan!]!  
+    remindars: [Remindar!]!
+    events: [EventParty!]!
+    dailyplans: [DailyPlan!]!
     quickactions: QuickAction
+    dailyPlansOfMRs: [DailyPlan!]!   # ⬅️ added for ABM
   }
 
   type HomePageResponse {
@@ -256,9 +269,8 @@ export const UserTypeDefs = `#graphql
     verifyOtp(type: String!, email: String, phone: String, otpOrToken: String!): UserResponse!
     loginUser(email: String!, password: String!): AuthPayload!
     assignMrsToAbm(data: AssignMrsToAbmInput!): UserResponse!
-        assignDoctorChemistToUser(
+    assignDoctorChemistToUser(
       data: AssignDoctorChemistToUserInput!
     ): AssignDoctorChemistResponse!
-
   }
 `;

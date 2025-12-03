@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";
-import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
+import { istTodayUtcRange, toUtcMidnight } from "../../utils/ConvertUTCToIST";
 
 const prisma = new PrismaClient();
 
@@ -160,7 +160,8 @@ export const DailyPlanResolver = {
         if (role === "ABM") {
           whereClause.abmId = userId;
         }
-
+       const { start, end } = istTodayUtcRange();
+       if(start && end) whereClause.planDate = { gte: start, lte: end };
         const page = args.page && args.page > 0 ? args.page : 1;
         const limit = args.limit && args.limit > 0 ? args.limit : 10;
         const skip = (page - 1) * limit;
@@ -255,6 +256,7 @@ export const DailyPlanResolver = {
         return createResponse(500, false, err.message);
       }
     },
+
   },
 
   Mutation: {

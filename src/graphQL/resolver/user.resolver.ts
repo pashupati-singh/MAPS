@@ -294,6 +294,52 @@ const filters =
       },
     });
 
+    let dailyPlansOfMRs : any = [];
+
+    if(role === "ABM"){
+       const abmsFilter = {
+      ...baseDateFilter,
+      abmId: userId,
+    }
+
+     dailyPlansOfMRs = await prisma.dailyPlan.findMany({
+       where : abmsFilter,
+       include: {
+        doctors: {
+          include: {
+            DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
+          },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+        mr: {
+          include: {
+            UserWorkingArea : {
+              include: {
+                WorkingArea : true
+              }
+            }
+          }
+        }
+      },
+    })
+    }
+
 
     const actions = await prisma.quickAction.findFirst({
           where: { userId, companyId },
@@ -308,6 +354,7 @@ const filters =
         events: events ?? [],     
         dailyplans: dailyplans ?? [],
         quickactions : actions?? null,
+        dailyPlansOfMRs: role === "ABM" ? dailyPlansOfMRs : []
       },
     };
   } catch (err: any) {
