@@ -248,7 +248,7 @@ model ChemistProduct {
 
 model DailyPlan {
   id                      Int                @id @default(autoincrement())
-  mrId                    Int
+  mrId                    Int?
   abmId                   Int?
   companyId               Int
   isApproved              Boolean            @default(false)
@@ -264,12 +264,10 @@ model DailyPlan {
   dailyCallReports        DailyCallReport[]
   abm                     User?              @relation("ABMDailyPlans", fields: [abmId], references: [id])
   company                 Company            @relation(fields: [companyId], references: [id])
-  mr                      User               @relation("MRDailyPlans", fields: [mrId], references: [id])
+  mr                      User?              @relation("MRDailyPlans", fields: [mrId], references: [id], onDelete: Restrict)
   WorkingArea             WorkingArea?       @relation(fields: [workingAreaId], references: [id])
   chemists                DailyPlanChemist[]
   doctors                 DailyPlanDoctor[]
-
-  @@unique([mrId, planDate])
 }
 
 model DailyPlanDoctor {

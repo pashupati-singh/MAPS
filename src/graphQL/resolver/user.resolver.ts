@@ -251,14 +251,11 @@ const filters =
     ? {
         ...baseDateFilter,
         abmId: userId,
-        OR: [
-          { createdBy: "ABM" },
-          {
-            createdBy: "MR",
+        
+            createdBy: "ABM",
             workTogether: true,
             isWorkTogetherConfirmed: true,
-          },
-        ],
+        
       }
     : {
         ...baseDateFilter,

@@ -282,6 +282,7 @@ export const DailyPlanResolver = {
                companyId,
                planDate: { gte: start, lt: end },
                abmId: userId,
+               createdBy : "MR"
              };
        
       const  dailyPlansOfMRs = await prisma.dailyPlan.findMany({
@@ -563,7 +564,6 @@ const existingPlan = await prisma.dailyPlan.findFirst({
 
     const updatedData: any = {};
 
-    // ---- Approve / Reject logic ----
     if (typeof isApproved === "boolean") {
       updatedData.isApproved = isApproved;
       if (isApproved) updatedData.isRejected = false;
@@ -573,8 +573,6 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       updatedData.isRejected = isRejected;
       if (isRejected) updatedData.isApproved = false;
     }
-
-    // ---- WorkTogether confirm logic ----
     if (typeof isWorkTogetherConfirmed === "boolean") {
       if (!plan.workTogether) {
         return createResponse(400, false, "WorkTogether not requested by MR");
@@ -583,7 +581,6 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       updatedData.isWorkTogetherConfirmed = isWorkTogetherConfirmed;
 
       if (isWorkTogetherConfirmed === true) {
-        // ✅ Optional safety: avoid duplicate ABM plan for that day
         const abmOwnPlan = await prisma.dailyPlan.findFirst({
           where: {
             companyId,
@@ -601,11 +598,8 @@ const existingPlan = await prisma.dailyPlan.findFirst({
             "You already have your own daily plan for this date."
           );
         }
-
-        // ✅ Create a fresh DailyPlan for ABM
-        const newAbmPlan = await prisma.dailyPlan.create({
+         await prisma.dailyPlan.create({
           data: {
-            mrId : 0,
             abmId: userId,
             companyId,
             workTogether: plan.workTogether,
@@ -616,15 +610,11 @@ const existingPlan = await prisma.dailyPlan.findFirst({
             notes: plan.notes ?? undefined,
             workingAreaId: plan.workingAreaId ?? undefined,
             createdBy: "ABM",
-
-            // Clone doctors
             doctors: {
               create: plan.doctors.map((d) => ({
                 doctorCompanyId: d.doctorCompanyId!,
               })),
             },
-
-            // Clone chemists
             chemists: {
               create: plan.chemists.map((c) => ({
                 chemistCompanyId: c.chemistCompanyId!,
@@ -632,9 +622,6 @@ const existingPlan = await prisma.dailyPlan.findFirst({
             },
           },
         });
-
-        // You don’t have to return newAbmPlan,
-        // but it's available here if later you want to.
       }
     }
 
@@ -652,7 +639,6 @@ const existingPlan = await prisma.dailyPlan.findFirst({
     return createResponse(500, false, err.message);
   }
 },
-
 
 
     deleteDailyPlan: async (_: any, { dailyPlanId }: { dailyPlanId: number }, context: Context) => {
