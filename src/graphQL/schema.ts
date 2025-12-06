@@ -27,6 +27,8 @@ import { RequestTypeDefs } from './typeDefs/request.typeDefs';
 import { RequestResolver } from './resolver/request.resolver';
 import { SaleTypeDefs } from './typeDefs/sale.typeDefs';
 import { SaleResolvers } from './resolver/sale.resolver';
+import { DateSummaryTypeDefs } from './typeDefs/dateSummary.typeDefs';
+import { DateSummaryResolver } from './resolver/dateSummary.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -43,7 +45,8 @@ export const typeDefs = mergeTypeDefs([
     ExpenseTypeDefs,
     QuickActionTypeDefs,
     RequestTypeDefs,
-    SaleTypeDefs
+    SaleTypeDefs,
+    DateSummaryTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -60,6 +63,7 @@ export const resolvers = mergeResolvers([
     ExpenseResolvers,
     QuickActionResolver,
     RequestResolver,
-    SaleResolvers
+    SaleResolvers,
+    DateSummaryResolver
 
 ]);
