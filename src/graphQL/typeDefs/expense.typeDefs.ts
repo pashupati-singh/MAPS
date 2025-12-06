@@ -68,8 +68,16 @@ export const ExpenseTypeDefs = `#graphql
   data: [Expense!]
 }
 
+type ExpenseDetailsResponse {
+  code: Int!
+  success: Boolean!
+  message: String
+  data: ExpenseDetails!
+}
+
   type Query {
     getExpenseById(id: Int!): ExpenseResponse!
+    getExpenseDetailsById(id: Int!): ExpenseDetailsResponse!
     getExpenseByMonths(dates: [String!]!): ExpenseListResponse!
   }
 

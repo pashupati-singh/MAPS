@@ -31,6 +31,26 @@ export const ExpenseResolvers = {
       return createResponse(200, true, "Expense fetched successfully", expense);
     },
 
+
+     async getExpenseDetailsById(_: any, { id }: { id: number }, context: Context) {
+      if (!context?.user) return createResponse(400, false, "User not authenticated");
+
+      const expenseDetails = await prisma.expenseDetails.findUnique({
+        where: { id },
+        include: { Expense: true },
+      });
+
+      if (!expenseDetails) {
+        return createResponse(404, false, "Expense not found");
+      }
+      const companyId = context.company?.id || context.user.companyId;
+      if (!companyId || expenseDetails?.Expense?.companyId !== companyId) {
+        return createResponse(403, false, "Not authorised to view this expense");
+      }
+
+      return createResponse(200, true, "Expense fetched successfully", expenseDetails);
+    },
+
      async getExpenseByMonths(
   _: any,
   { dates }: { dates: string[] },
