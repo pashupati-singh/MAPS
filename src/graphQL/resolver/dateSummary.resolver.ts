@@ -78,9 +78,29 @@ export const DateSummaryResolver = {
         const dailyPlans = await prisma.dailyPlan.findMany({
           where: planFilter,
           include: {
-            mr: true,
-            // add more includes if you need
+        doctors: {
+          include: {
+            DoctorCompany: {
+              include: {
+                doctor: true,
+                doctorChemist: true,
+                DoctorProduct: true,
+              },
+            },
           },
+        },
+        chemists: {
+          include: {
+            ChemistCompany: {
+              include: {
+                chemist: true,
+                doctorChemist: true,
+                ChemistProduct: true,
+              },
+            },
+          },
+        },
+      },
           orderBy: { id: "asc" },
         });
 
@@ -118,32 +138,57 @@ export const DateSummaryResolver = {
           orderBy: { id: "asc" },
         });
 
-        // --- Sales on that date, scoped to user & company ---
-        const sales = await prisma.sale.findMany({
-          where: {
-            companyId,
-            orderDate: { gte: start, lt: end },
-            OR: [
-              { mrId: userId },
-              { abmId: userId },
-            ],
-          },
-          orderBy: { id: "asc" },
-        });
+       const rawSales = await prisma.sale.findMany({
+  where: {
+    companyId,
+    orderDate: { gte: start, lt: end },
+    OR: [
+      { mrId: userId },
+      { abmId: userId },
+    ],
+  },
+  include: {
+    SaleItem: {
+      include: {
+        Product: true,   // so each item has Product
+      },
+    },
+    DoctorCompany: {
+      include: { doctor: true },
+    },
+    ChemistCompany: {
+      include: { chemist: true },
+    },
+    WorkingArea: true,
+  },
+  orderBy: { id: "asc" },
+});
 
-        return {
-          code: 200,
-          success: true,
-          message: "Date summary fetched successfully",
-          data: {
-            date,
-            dailyPlans,
-            remindars,
-            requests,
-            expenseDetails,
-            sales,
-          },
-        };
+// 🔑 Map field names to match GraphQL schema
+const sales = rawSales.map((sale) => ({
+  ...sale,
+  saleItems: (sale.SaleItem ?? []).map((item) => ({
+    ...item,
+    product: item.Product,  // GraphQL expects `product`, Prisma returns `Product`
+  })),
+  doctorCompany: sale.DoctorCompany ?? null,
+  chemistCompany: sale.ChemistCompany ?? null,
+  workingArea: sale.WorkingArea ?? null,
+}));
+
+return {
+  code: 200,
+  success: true,
+  message: "Date summary fetched successfully",
+  data: {
+    date,
+    dailyPlans,
+    remindars,
+    requests,
+    expenseDetails,
+    sales,
+  },
+};
       } catch (err: any) {
         return createResponse(500, false, err.message);
       }
