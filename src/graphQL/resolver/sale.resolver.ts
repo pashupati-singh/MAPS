@@ -127,15 +127,21 @@ export const SaleResolvers = {
         throw new Error("Company authorization required");
       }
 
-      const userId = context.user.userId;      // MR id
+      if (!context.user?.role) {
+        throw new Error("Role authorization required");
+      }
+
+      const userId = context.user.userId;   
       const companyId = context.user.companyId;
+      const role = context.user.role;
       const { startDate, endDate } = args;
 
       const start = toUtcMidnight(startDate);
       const end = toUtcMidnight(endDate);
       const endExclusive = new Date(end.getTime() + 24 * 60 * 60 * 1000);
-
-      const sales = await prisma.sale.findMany({
+      let sales: any = [];
+      if(role === "MR"){
+         sales = await prisma.sale.findMany({
         where: {
           companyId,
           mrId: userId,
@@ -159,11 +165,37 @@ export const SaleResolvers = {
           WorkingArea: true,
         },
       });
+      }else if(role === "ABM"){
+         sales = await prisma.sale.findMany({
+        where: {
+          companyId,
+          abmId: userId,
+          orderDate: {
+            gte: start,
+            lt: endExclusive,
+          },
+        },
+        include: {
+          SaleItem: {
+            include: {
+              Product: true,
+            },
+          },
+          DoctorCompany: {
+            include: { doctor: true },
+          },
+          ChemistCompany: {
+            include: { chemist: true },
+          },
+          WorkingArea: true,
+        },
+      });
+      }
 
-      const totalAmount = sales.reduce((sum, sale) => {
+      const totalAmount = sales.reduce((sum : any, sale : any) => {
         if (sale.totalAmount != null) return sum + sale.totalAmount;
         const fromItems = sale.SaleItem.reduce(
-          (s, item) => s + item.lineAmount,
+          (s :any, item : any) => s + item.lineAmount,
           0
         );
         return sum + fromItems;
@@ -179,7 +211,7 @@ export const SaleResolvers = {
 
       for (const sale of sales) {
         const saleTotal = sale.SaleItem.reduce(
-          (s, item) => s + item.lineAmount,
+          (s : any, item : any) => s + item.lineAmount,
           0
         );
 
