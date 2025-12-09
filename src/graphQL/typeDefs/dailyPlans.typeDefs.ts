@@ -150,9 +150,14 @@ type Doctor {
     data : [DailyPlan]
   }
 
+  input filterByDates {
+    startDate : String
+    endDate : String
+  }
+
   type Query {
     getDailyPlansByCompanyId(page: Int, limit: Int): DailyPlansResponse!
-    getDailyPlansByMRId(page: Int, limit: Int): DailyPlansResponse!
+    getDailyPlansByMRId(page: Int, limit: Int, filter: filterByDates): DailyPlansResponse!
     getDailyPlansByABMId(page: Int, limit: Int): DailyPlansResponse!
     getDailyPlanById(id: Int!): DailyPlanResponse!
 

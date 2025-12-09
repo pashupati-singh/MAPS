@@ -69,7 +69,7 @@ export const DailyPlanResolver = {
   }
      },
 
-    getDailyPlansByMRId: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
+    getDailyPlansByMRId: async (_: any, args: { page?: number; limit?: number ; filter? : {startDate?: string, endDate?: string} }, context: Context) => {
       try {
         if (!context || context.authError) {
           return createResponse(400, false, context?.authError || "Authorization Error");
@@ -89,6 +89,13 @@ export const DailyPlanResolver = {
         const whereClause: any = { companyId };
         if (role === "MR") {
           whereClause.mrId = userId;
+        }
+
+        if (args.filter && args.filter.startDate && args.filter.endDate) {
+          const { startDate , endDate } = args.filter;          
+          const start = toUtcMidnight(startDate);
+          const end = toUtcMidnight(endDate);
+          whereClause.planDate = { gte: start , lte: end };         
         }
 
         const page = args.page && args.page > 0 ? args.page : 1;
