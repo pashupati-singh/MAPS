@@ -1,24 +1,24 @@
-
-
 export const ProductTypeDefs = `#graphql
+scalar JSON
+scalar Upload   # 🆕 add this if not declared elsewhere
+
 type Mutation {
-  createProduct(input: CreateProductInput!): ProductResponse!
+  createProduct(input: CreateProductInput!, images: [Upload!]): ProductResponse!        # 🆕 images arg
   assignProductToDoctor(input: AssignProductToDoctorInput!): AssignProductToDoctorResponse!
   assignProductToChemist(input: AssignProductToChemistInput!): AssignProductToChemistResponse!
-  updateProduct(id: Int!, input: UpdateProductInput!): ProductResponse!
+  updateProduct(id: Int!, input: UpdateProductInput!, images: [Upload!]): ProductResponse!  # 🆕 images arg
   unassignProductFromDoctor(doctorProductIds: [Int!]!): ProductResponse!
   unassignProductFromChemist(chemistProductIds: [Int!]!): ProductResponse!
-
 }
 
 type Query {
   getProductById(productId: Int!): ProductResponseById!
-getProductsByCompany(
-  page: Int
-  limit: Int
-  companyId: Int
-  search: String
-): ProductResponsePagination!
+  getProductsByCompany(
+    page: Int
+    limit: Int
+    companyId: Int
+    search: String
+  ): ProductResponsePagination!
   getProductsByDoctor(doctorId: Int!): ProductResponse!
   getProductsByChemist(chemistId: Int!): ProductResponse!
 }
@@ -41,7 +41,6 @@ input AssignProductToDoctorInput {
   doctorCompanyId: Int!
   productIds: [Int!]!   
 }
-
 
 input AssignProductToChemistInput {
   chemistCompanyId: Int!
@@ -91,6 +90,7 @@ type Product {
   salt: String
   details: JSON
   companyId: Int!
+  images: [String!]        # 🆕 array of URLs
   createdAt: String!
   updatedAt: String!
 }

@@ -17,6 +17,7 @@ enum ChemistStatus {
 # ------------------ Types ------------------
 
 scalar JSON
+scalar Upload
 
 type Product {
   id: Int!
@@ -62,6 +63,7 @@ type DoctorCompany {
   dob: String
   anniversary: String
   approxTarget: Int
+  image: String 
 }
 
 type ChemistCompany {
@@ -212,8 +214,8 @@ doctorsUser(
 }
 
 extend type Mutation {
-  createDoctor(input: CreateDoctorInput!): DoctorResponse!
-  updateDoctor(input: UpdateDoctorInput!): DoctorResponse!
+  createDoctor(input: CreateDoctorInput!, image: Upload): DoctorResponse!
+  updateDoctor(input: UpdateDoctorInput!, image: Upload): DoctorResponse!
   updateDoctorCompanyWithDocComId(input: UpdateDoctorCompanyInput!): AssignDoctorToCompanyResponse!
   assignDoctorToCompany(input: AssignDoctorToCompanyInput!): AssignDoctorToCompanyResponse!
   unassignDoctorFromCompany(input: UnassignDoctorFromCompanyInput!): UnassignDoctorFromCompanyResponse!

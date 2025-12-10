@@ -1,4 +1,6 @@
 export const UserTypeDefs = `#graphql
+scalar Upload
+
   enum UserRole {
     MR
     ABM
@@ -71,6 +73,7 @@ export const UserTypeDefs = `#graphql
     division: String
     joiningDate: String
     isAssigned: Boolean
+    image: String 
     status: UserStatus!
     company: Company
     UserWorkingArea: [UserWorkingArea!]
@@ -246,7 +249,7 @@ export const UserTypeDefs = `#graphql
 
   type Mutation {
     createUser(data: CreateUserInput!): UserResponse!
-    updateUser(data: UpdateUserInput!): UserResponse!
+    updateUser(data: UpdateUserInput!, image: Upload): UserResponse!
     setMpin(mpin: String!): UserResponse!
     verifyMpin(userId: Int!, mpin: String!): AuthPayload!
     resendOtp(email: String, phone: String, type: String!): UserResponse!

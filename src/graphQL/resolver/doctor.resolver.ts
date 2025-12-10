@@ -2,7 +2,7 @@ import { Context } from "../../context";
 import { getLatLongFromAddress } from "../../utils/latlong";
 import { createResponse } from "../../utils/response";
 import { PrismaClient } from "@prisma/client";
-
+import { FileUpload, uploadImageFromGraphQL } from "../../utils/uploaderFunction";
 const prisma = new PrismaClient();
 
 export const DoctorResolvers = {
@@ -215,7 +215,7 @@ doctorsUser: async (
   },
 
   Mutation: {
-createDoctor: async (_: any, { input }: any, context: Context) => {
+createDoctor: async (_: any, { input, image }: { input: any; image?: Promise<FileUpload> }, context: Context) => {
   try {
     if (!context || context.authError) {
       return { code: 400, success: false, message: context.authError || "Authorization Error", doctor: null };
@@ -224,7 +224,7 @@ createDoctor: async (_: any, { input }: any, context: Context) => {
     if (!companyId) {
       return { code: 400, success: false, message: "Company authorization required", doctor: null };
     }
-
+    const imageUrl = await uploadImageFromGraphQL(image);
     let addressId: number | null = null;
     if (input.address) {
       const fullAddress = [
@@ -284,6 +284,7 @@ createDoctor: async (_: any, { input }: any, context: Context) => {
             dob:           input.dob          ?? null,   
             anniversary:   input.anniversary  ?? null,
             approxTarget:  input.approxTarget ?? null,
+            image:         imageUrl ?? null, 
           },
         },
       },
@@ -303,7 +304,7 @@ createDoctor: async (_: any, { input }: any, context: Context) => {
     return { code: 500, success: false, message: err.message, doctor: null };
   }
 },
-updateDoctor: async (_: any, { input }: any, context: Context) => {
+updateDoctor: async (_: any, { input, image }: { input: any; image?: Promise<FileUpload> }, context: Context) => {
   try {
     if(!context || context.authError) return createResponse(401, false, "Unauthorized");
     if(!context.user?.companyId) return createResponse(401, false, "Company not found");
@@ -311,7 +312,7 @@ updateDoctor: async (_: any, { input }: any, context: Context) => {
       where: { id: Number(input.doctorId) },
     });
     if (!doctor) return createResponse(404, false, "Doctor not found");
-
+     const imageUrl = await uploadImageFromGraphQL(image);
     let addressId = doctor.addressId;
     if (input.address) {
       const fullAddress = [
@@ -371,6 +372,7 @@ updateDoctor: async (_: any, { input }: any, context: Context) => {
           dob: input.dob ?? undefined,
           anniversary: input.anniversary ?? undefined,
           approxTarget: input.approxTarget ?? undefined,
+          image:        imageUrl ?? undefined,  
         },
       });
     }

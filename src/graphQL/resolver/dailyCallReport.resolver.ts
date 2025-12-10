@@ -250,12 +250,12 @@ export const DailyCallReportResolver = {
       if (dailyPlanDoctorId) {
         await prisma.dailyPlanDoctor.update({
           where: { id: dailyPlanDoctorId },
-          data: { dcr: true },
+          data: { dcr: true , status : "completed" },
         });
       } else if (dailyPlanChemistId) {
         await prisma.dailyPlanChemist.update({
           where: { id: dailyPlanChemistId },
-          data: { dcr: true },
+          data: { dcr: true , status : "completed" },
         });
       }
     }

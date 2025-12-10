@@ -2,6 +2,7 @@ import { Context } from "../../context";
 import { convertUTCToIST, nowIST } from "../../utils/ConvertUTCToIST";
 import { createResponse } from "../../utils/response";
 import { PrismaClient } from "@prisma/client";
+import { FileUpload, uploadManyImages } from "../../utils/uploaderFunction";
 
 const prisma = new PrismaClient();
 
@@ -124,13 +125,22 @@ Query: {
     },
   },
   Mutation: {
-    createProduct: async (_: any, { input }: any , context : Context) => {
+    createProduct: async (
+  _: any,
+  { input, images }: { input: any; images?: Promise<FileUpload>[] },
+  context: Context
+) => {
+
       try {
         if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
         if (!context?.user?.companyId) return createResponse(400, false, "Company authorization required");
         const companyId = context?.user?.companyId
         if (!input.name) return createResponse(400, false, "Name is required");
         if (!input.type) return createResponse(400, false, "Type is required");
+         if (images && images.length > 10) {
+      return createResponse(400, false, "Maximum 10 images allowed per request");
+    }
+
 
          const existingProduct = await prisma.product.findFirst({
       where: {
@@ -144,6 +154,7 @@ Query: {
     if (existingProduct) {
       return createResponse(400, false, "Product already exists with the same name, type, and salt in this company.");
     }
+     const imageUrls = await uploadManyImages(images);
       await prisma.product.create({
           data: {
             name: input.name,
@@ -151,6 +162,7 @@ Query: {
             salt: input.salt,
             details: input.details,
             companyId,
+            images: imageUrls,
           },
         });
         return createResponse(201, true, "Product created successfully");
@@ -296,32 +308,47 @@ unassignProductFromChemist: async (_: any, { chemistProductIds }: any, context: 
   }
 },
 
-   
-    updateProduct: async (_: any, { id, input }: any, context: Context) => {
-      try {
-        if (!context || context.authError)
-          return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.company?.id)
-          return createResponse(400, false, "Company authorization required");
+updateProduct: async (
+  _: any,
+  { id, input, images }: { id: number; input: any; images?: Promise<FileUpload>[] },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError)
+      return createResponse(400, false, context.authError || "Authorization Error");
+    if (!context.company?.id)
+      return createResponse(400, false, "Company authorization required");
+    if (images && images.length > 10) {
+      return createResponse(400, false, "Maximum 10 images allowed per request");
+    }
 
-        const product = await prisma.product.updateMany({
-          where: { id, companyId: context.company.id },
-          data: {
-            ...(input.name && { name: input.name }),
-            ...(input.type && { type: input.type }),
-            ...(input.salt && { salt: input.salt }),
-            ...(input.details && { details: input.details }),
-          },
-        });
+    const imageUrls = await uploadManyImages(images); 
 
-        if (product.count === 0)
-          return createResponse(404, false, "Product not found or unauthorized");
+    const data: any = {
+      ...(input.name && { name: input.name }),
+      ...(input.type && { type: input.type }),
+      ...(input.salt && { salt: input.salt }),
+      ...(input.details && { details: input.details }),
+    };
 
-        return createResponse(200, true, "Product updated successfully");
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    if (imageUrls.length > 0) {
+      data.images = imageUrls;
+    }
+
+    const product = await prisma.product.updateMany({
+      where: { id, companyId: context.company.id },
+      data,
+    });
+
+    if (product.count === 0)
+      return createResponse(404, false, "Product not found or unauthorized");
+
+    return createResponse(200, true, "Product updated successfully");
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
   },
 

@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import { validatePassword } from "../../utils/validatePassword";
 import { Context } from "../../context";
 import { istTodayUtcRange } from "../../utils/ConvertUTCToIST";
+import { FileUpload, uploaderFunction, uploadImageFromGraphQL } from "../../utils/uploaderFunction";
 
 const prisma = new PrismaClient();
 
@@ -505,15 +506,20 @@ const eventsChemist = await prisma.chemistCompany.findMany({
       }
     },
 
-    updateUser: async (_: any, { data }: { data: any }, context: Context) => {
+updateUser: async (
+  _: any,
+  { data, image }: { data: any; image?: Promise<FileUpload> },
+  context: Context
+) => {
   try {
     if (!context || context.authError) {
       return createResponse(400, false, context.authError || "Authorization Error");
-    } 
+    }
 
     const loggedInUser = context.user;
     let targetUserId = context?.user?.userId || data.id;
 
+   const imageUrl = await uploadImageFromGraphQL(image);
     const updatedUser = await prisma.user.update({
       where: { id: targetUserId, companyId: loggedInUser?.companyId },
       data: {
@@ -522,16 +528,17 @@ const eventsChemist = await prisma.chemistCompany.findMany({
         division: data.division ?? undefined,
         status: data.status ?? undefined,
         role: data.role ?? undefined,
-        joiningDate: data.joiningDate ?? undefined
+        joiningDate: data.joiningDate ?? undefined,
+        image: imageUrl ?? undefined,
       },
     });
 
     return createResponse(200, true, "User updated successfully", updatedUser);
-
   } catch (err: any) {
     return createResponse(500, false, err.message);
   }
 },
+
 
     setMpin: async (_: any, { mpin }: any , context: Context) => {
       try {

@@ -2,6 +2,7 @@ import { Context } from "../../context";
 import { getLatLongFromAddress } from "../../utils/latlong";
 import { createResponse } from "../../utils/response";
 import { PrismaClient } from "@prisma/client";
+import { FileUpload, uploadImageFromGraphQL } from "../../utils/uploaderFunction";
 
 const prisma = new PrismaClient();
 
@@ -239,7 +240,7 @@ chemistsUser: async (
 },
 
   Mutation: {
-createChemist: async (_: any, { input }: any, context: Context) => {
+createChemist: async (_: any, { input,image }: { input: any; image?: Promise<FileUpload> }, context: Context) => {
   try {
     if (!context || context.authError) {
       return { code: 400, success: false, message: context.authError || "Authorization Error", data: null };
@@ -249,6 +250,9 @@ createChemist: async (_: any, { input }: any, context: Context) => {
     if (!companyId) {
       return { code: 400, success: false, message: "Company authorization required", data: null };
     }
+
+    const imageUrl = await uploadImageFromGraphQL(image);
+    
 
     let addressRecord = null;
     if (input.address) {
@@ -298,6 +302,7 @@ createChemist: async (_: any, { input }: any, context: Context) => {
             dob: input.dob ?? null,
             anniversary: input.anniversary ?? null,
             approxTarget: input.approxTarget ?? null,
+            image:         imageUrl ?? null, 
           },
         },
       },
@@ -312,7 +317,7 @@ createChemist: async (_: any, { input }: any, context: Context) => {
     return { code: 500, success: false, message: err.message, data: null };
   }
 },
-     updateChemist: async (_: any, { input }: any, context:Context) => {
+     updateChemist: async (_: any, { input , image }: { input: any; image?: Promise<FileUpload> }, context:Context) => {
       try {
         if (!context || context.authError) {
       return { code: 400, success: false, message: context.authError || "Authorization Error", data: null };
@@ -327,6 +332,7 @@ createChemist: async (_: any, { input }: any, context: Context) => {
           where: { id: Number(input.chemistId) },
         });
         if (!chemist) return createResponse(404, false, "Chemist not found");
+            const imageUrl = await uploadImageFromGraphQL(image);
 
         let addressId = chemist.addressId;
 
@@ -390,6 +396,7 @@ createChemist: async (_: any, { input }: any, context: Context) => {
           dob: input.dob ?? undefined,
           anniversary: input.anniversary ?? undefined,
           approxTarget: input.approxTarget ?? undefined,
+          image:         imageUrl ?? null, 
         },
       });
     }
