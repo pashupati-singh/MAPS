@@ -16,10 +16,12 @@ export const UserResolver = {
      Query: {
 
       health: () => {
+        console.log("Health check");
       return "OK";
     },
     runMissedDailyPlansJob: async () => {
       try {
+        console.log("Running missed daily plans job");
         await updateMissedDailyPlans();
         return true;
       } catch (err) {
