@@ -13,19 +13,23 @@
   "license": "ISC",
   "dependencies": {
     "@apollo/server": "^5.0.0",
+    "@as-integrations/express4": "^1.1.2",
     "@graphql-tools/merge": "^9.1.1",
     "@prisma/client": "^6.15.0",
     "argon2": "^0.44.0",
     "axios": "^1.11.0",
+    "body-parser": "^2.2.1",
     "cloudinary": "^2.8.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
+    "express": "^5.2.1",
     "graphql": "^16.11.0",
     "graphql-type-json": "^0.3.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.3.1",
