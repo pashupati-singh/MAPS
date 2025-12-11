@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "postinstall": "prisma generate",
-    "start": "ts-node src/dev.ts",
-    "dev": "nodemon src/dev.ts"
-  },
+  "postinstall": "prisma generate",
+  "build": "tsc",
+  "start": "node dist/dev.js",
+  "dev": "nodemon src/dev.ts"
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
