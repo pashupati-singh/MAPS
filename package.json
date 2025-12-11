@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
+    "start:Prod" : "npm run build && npm run start",
     "dev:L2": "nodemon src/dev.ts"
   },
   "keywords": [],
