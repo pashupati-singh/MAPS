@@ -4,19 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
     "postinstall": "prisma generate",
-    "start:Prod" : "npm run build && npm run start",
-    "dev:L2": "nodemon src/dev.ts"
+    "start": "ts-node src/dev.ts",
+    "dev": "nodemon src/dev.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@apollo/server": "^5.0.0",
-    "@as-integrations/next": "^4.0.0",
     "@graphql-tools/merge": "^9.1.1",
     "@prisma/client": "^6.15.0",
     "argon2": "^0.44.0",
@@ -33,7 +29,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.3.1",
-    "@types/react": "19.1.16",
     "nodemon": "^3.1.10",
     "prisma": "^6.15.0",
     "ts-node": "^10.9.2",
