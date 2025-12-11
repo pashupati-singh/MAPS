@@ -6,6 +6,7 @@ import { validatePassword } from "../../utils/validatePassword";
 import { Context } from "../../context";
 import { istTodayUtcRange } from "../../utils/ConvertUTCToIST";
 import { FileUpload, uploaderFunction, uploadImageFromGraphQL } from "../../utils/uploaderFunction";
+import { updateMissedDailyPlans } from "../../utils/updateMissedDailyPlans";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +14,20 @@ const JWT_SECRET = process.env.JWT_SECRET || "supersecretkey";
 
 export const UserResolver = {
      Query: {
+
+      health: () => {
+      return "OK";
+    },
+    runMissedDailyPlansJob: async () => {
+      try {
+        await updateMissedDailyPlans();
+        return true;
+      } catch (err) {
+        console.error("Error in runMissedDailyPlansJob:", err);
+        return false;
+      }
+    },
+
 getUsers: async (
   _: any,
   args: {

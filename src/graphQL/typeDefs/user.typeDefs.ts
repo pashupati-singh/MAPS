@@ -245,6 +245,8 @@ scalar Upload
   extend type Query {
     homePage: HomePageResponse!
     upcomingEvents: UpcomingEventsResponse!
+    health: String!
+    runMissedDailyPlansJob: Boolean!
   }
 
   type Mutation {
