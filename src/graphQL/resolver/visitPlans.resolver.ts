@@ -7,6 +7,9 @@ import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
 const prisma = new PrismaClient();
 
 export const VisitPlansResolver = {
+  VisitPlan: {
+    date: (parent: any) => (parent.date ? new Date(parent.date).toISOString() : null),
+  },
   Query: {
     getVisitPlans: async (
       _: any,
