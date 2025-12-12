@@ -1,3 +1,4 @@
+// -------------------- typeDefs --------------------
 export const VisitPlanTypeDefs = `#graphql
   type VisitPlan {
     id: Int!
@@ -7,6 +8,7 @@ export const VisitPlanTypeDefs = `#graphql
     date: String
     visitComplete: Boolean!
     isApprove: Boolean!
+    stay: Int
     abm: User
     mr: User
     workingArea: WorkingArea
@@ -14,7 +16,8 @@ export const VisitPlanTypeDefs = `#graphql
 
   input CreateVisitPlanInput {
     workingAreaId: Int!
-    date: String!
+    date: String!     # dd/mm/yyyy
+    stay: Int
   }
 
   type VisitPlanResponse {

@@ -595,16 +595,17 @@ model UserDoctor {
 }
 
 model VisitPlans {
-  id                          Int          @id @default(autoincrement())
-  abmId                       Int?
-  mrId                        Int?
-  workingAreaId               Int?
-  date                        DateTime?    @db.Date
-  visitComplete               Boolean?     @default(false)
-  isApprove                   Boolean      @default(false)
-  abm                         User?        @relation("VisitPlans_abmIdToUser", fields: [abmId], references: [id])
-  mr                          User?        @relation("VisitPlans_mrIdToUser", fields: [mrId], references: [id])
-  WorkingArea                 WorkingArea? @relation(fields: [workingAreaId], references: [id])
+  id            Int          @id @default(autoincrement())
+  abmId         Int?
+  mrId          Int?
+  workingAreaId Int?
+  date          DateTime?    @db.Date
+  visitComplete Boolean?     @default(false)
+  isApprove     Boolean      @default(false)
+  stay          Int?
+  abm           User?        @relation("VisitPlans_abmIdToUser", fields: [abmId], references: [id])
+  mr            User?        @relation("VisitPlans_mrIdToUser", fields: [mrId], references: [id])
+  WorkingArea   WorkingArea? @relation(fields: [workingAreaId], references: [id])
 }
 
 enum CompanySize {
