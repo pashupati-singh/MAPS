@@ -56,109 +56,127 @@ export const VisitPlansResolver = {
   },
 
   Mutation: {
-    createVisitPlans: async (_: any, { data }: any, context: Context) => {
-      try {
-        if (!context || context.authError) {
-          return { code: 400, success: false, message: context?.authError || "Authorization Error", data: [], lastPage: 0 };
-        }
-        if (context.user?.role !== "ABM") {
-          return { code: 400, success: false, message: "Only ABM can create visit plans", data: [], lastPage: 0 };
-        }
+   createVisitPlans: async (_: any, { data }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return { code: 400, success: false, message: context?.authError || "Authorization Error", data: [], lastPage: 0 };
+    }
+    if (context.user?.role !== "ABM") {
+      return { code: 400, success: false, message: "Only ABM can create visit plans", data: [], lastPage: 0 };
+    }
 
-        const abmId = context.user.userId;
-        const companyId = context.user.companyId;
-        const { workingAreaId, date, stay } = data;
+    const abmId = context.user.userId;
+    const companyId = context.user.companyId;
+    const { workingAreaId, date, stay } = data;
 
-        if (!workingAreaId) return { code: 400, success: false, message: "workingAreaId is required", data: [], lastPage: 0 };
-        if (!date) return { code: 400, success: false, message: "date is required", data: [], lastPage: 0 };
+    if (!workingAreaId) return { code: 400, success: false, message: "workingAreaId is required", data: [], lastPage: 0 };
+    if (!date) return { code: 400, success: false, message: "date is required", data: [], lastPage: 0 };
 
-        const planDate = toUtcMidnight(date);
+    const planDate = toUtcMidnight(date); // dd/mm/yyyy
 
-        // MRs in that working area
-        const assignments = await prisma.userWorkingArea.findMany({
-          where: {
+    const assignments = await prisma.userWorkingArea.findMany({
+      where: {
+        workingAreaId,
+        User: { is: { role: "MR", companyId } },
+      },
+      select: { userId: true },
+    });
+
+    const mrIds = assignments.map(a => a.userId).filter((x): x is number => typeof x === "number");
+    if (mrIds.length === 0) {
+      return { code: 404, success: false, message: "No MR found for this working area", data: [], lastPage: 0 };
+    }
+
+    // ✅ Block only if there's any NON-rejected plan for that date (ABM or any MR)
+    const activeExists = await prisma.visitPlans.findFirst({
+      where: {
+        OR: [
+          { abmId, date: planDate },
+          { mrId: { in: mrIds }, date: planDate },
+        ],
+        status: { in: ["pending", "approved", "completed"] }, // allow if only rejected exists
+      },
+      select: { id: true },
+    });
+
+    if (activeExists) {
+      return {
+        code: 409,
+        success: false,
+        message: "Visit plan already exists for this date (pending/approved/completed).",
+        data: [],
+        lastPage: 0,
+      };
+    }
+
+    const created = await prisma.$transaction(
+      mrIds.map(mrId =>
+        prisma.visitPlans.create({
+          data: {
+            abmId,
+            mrId,
             workingAreaId,
-            User: { is: { role: "MR", companyId } },
+            date: planDate,
+            stay: typeof stay === "number" ? stay : null,
+            status: "pending",
           },
-          select: { userId: true },
-        });
-
-        const mrIds = assignments
-          .map(a => a.userId)
-          .filter((x): x is number => typeof x === "number");
-
-        if (mrIds.length === 0) {
-          return { code: 404, success: false, message: "No MR found for this working area", data: [], lastPage: 0 };
-        }
-
-        // Pre-check: abmId+date OR any mrId+date
-        const alreadyExists = await prisma.visitPlans.findFirst({
-          where: {
-            OR: [
-              { abmId, date: planDate },
-              { mrId: { in: mrIds }, date: planDate },
-            ],
-          },
-          select: { id: true },
-        });
-
-        if (alreadyExists) {
-          return { code: 409, success: false, message: "Visit plan already exists for this date (ABM or one of the MRs).", data: [], lastPage: 0 };
-        }
-
-        const created = await prisma.$transaction(
-          mrIds.map(mrId =>
-            prisma.visitPlans.create({
-              data: {
-                abmId,
-                mrId,
-                workingAreaId,
-                date: planDate,
-                stay: typeof stay === "number" ? stay : null,
-                visitComplete: false,
-                isApprove: false,
-              },
-              include: {
-                WorkingArea: true,
-                abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
-                mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
-              },
-            })
-          )
-        );
-
-        return { code: 201, success: true, message: "Visit plans created successfully", data: created, lastPage: 1 };
-      } catch (err: any) {
-        return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
-      }
-    },
-
-    approveVisitPlan: async (_: any, { visitPlanId }: { visitPlanId: number }, context: Context) => {
-      try {
-        if (!context || context.authError) return createResponse(400, false, context?.authError || "Authorization Error");
-        if (context.user?.role !== "MR") return createResponse(400, false, "Only MR can approve visit plan");
-        if (!visitPlanId) return createResponse(400, false, "visitPlanId is required");
-
-        const userId = context.user.userId;
-
-        const plan = await prisma.visitPlans.findUnique({ where: { id: visitPlanId } });
-        if (!plan) return createResponse(404, false, "Visit plan not found");
-        if (plan.mrId !== userId) return createResponse(403, false, "You are not allowed to approve this visit plan");
-
-        const updated = await prisma.visitPlans.update({
-          where: { id: visitPlanId },
-          data: { isApprove: true },
           include: {
             WorkingArea: true,
             abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
             mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
           },
-        });
+        })
+      )
+    );
 
-        return createResponse(200, true, "Visit plan approved successfully", updated);
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    return { code: 201, success: true, message: "Visit plans created successfully", data: created, lastPage: 1 };
+  } catch (err: any) {
+    return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
+  }
+},
+
+
+   updateVisitPlanStatus: async (_: any, { data }: any, context: Context) => {
+  try {
+    if (!context || context.authError) return createResponse(400, false, context?.authError || "Authorization Error");
+    if (context.user?.role !== "MR") return createResponse(400, false, "Only MR can update visit plan status");
+
+    const userId = context.user.userId;
+    const { visitPlanId, approve, rejected } = data;
+
+    if (!visitPlanId) return createResponse(400, false, "visitPlanId is required");
+
+    // only one flag allowed
+    if ((approve && rejected) || (!approve && !rejected)) {
+      return createResponse(400, false, "Send either approve:true OR rejected:true");
+    }
+
+    const plan = await prisma.visitPlans.findUnique({ where: { id: visitPlanId } });
+    if (!plan) return createResponse(404, false, "Visit plan not found");
+    if (plan.mrId !== userId) return createResponse(403, false, "You are not allowed to update this visit plan");
+
+    // Typically MR can decide only when pending
+    if (plan.status !== "pending") {
+      return createResponse(400, false, `Cannot update when status is ${plan.status}`);
+    }
+
+    const nextStatus = approve ? "approved" : "rejected";
+
+    const updated = await prisma.visitPlans.update({
+      where: { id: visitPlanId },
+      data: { status: nextStatus },
+      include: {
+        WorkingArea: true,
+        abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
+        mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
+      },
+    });
+
+    return createResponse(200, true, `Visit plan ${nextStatus} successfully`, updated);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
   },
 };

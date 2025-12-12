@@ -1,14 +1,19 @@
-// -------------------- typeDefs --------------------
 export const VisitPlanTypeDefs = `#graphql
+  enum VisitPlanStatus {
+    pending
+    approved
+    rejected
+    completed
+  }
+
   type VisitPlan {
     id: Int!
     abmId: Int
     mrId: Int
     workingAreaId: Int
     date: String
-    visitComplete: Boolean!
-    isApprove: Boolean!
     stay: Int
+    status: VisitPlanStatus!
     abm: User
     mr: User
     workingArea: WorkingArea
@@ -16,8 +21,14 @@ export const VisitPlanTypeDefs = `#graphql
 
   input CreateVisitPlanInput {
     workingAreaId: Int!
-    date: String!     # dd/mm/yyyy
+    date: String!   # dd/mm/yyyy
     stay: Int
+  }
+
+  input UpdateVisitPlanStatusInput {
+    visitPlanId: Int!
+    approve: Boolean
+    rejected: Boolean
   }
 
   type VisitPlanResponse {
@@ -41,6 +52,6 @@ export const VisitPlanTypeDefs = `#graphql
 
   extend type Mutation {
     createVisitPlans(data: CreateVisitPlanInput!): VisitPlanResponses!
-    approveVisitPlan(visitPlanId: Int!): VisitPlanResponse!
+    updateVisitPlanStatus(data: UpdateVisitPlanStatusInput!): VisitPlanResponse!
   }
 `;

@@ -595,17 +595,16 @@ model UserDoctor {
 }
 
 model VisitPlans {
-  id            Int          @id @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   abmId         Int?
   mrId          Int?
   workingAreaId Int?
-  date          DateTime?    @db.Date
-  visitComplete Boolean?     @default(false)
-  isApprove     Boolean      @default(false)
+  date          DateTime?       @db.Date
   stay          Int?
-  abm           User?        @relation("VisitPlans_abmIdToUser", fields: [abmId], references: [id])
-  mr            User?        @relation("VisitPlans_mrIdToUser", fields: [mrId], references: [id])
-  WorkingArea   WorkingArea? @relation(fields: [workingAreaId], references: [id])
+  status        VisitPlanStatus @default(pending)
+  abm           User?           @relation("VisitPlans_abmIdToUser", fields: [abmId], references: [id])
+  mr            User?           @relation("VisitPlans_mrIdToUser", fields: [mrId], references: [id])
+  WorkingArea   WorkingArea?    @relation(fields: [workingAreaId], references: [id])
 }
 
 enum CompanySize {
@@ -667,4 +666,11 @@ enum DailyPlanDoctorStatus {
   completed
   failed
   missed
+}
+
+enum VisitPlanStatus {
+  pending
+  approved
+  rejected
+  completed
 }
