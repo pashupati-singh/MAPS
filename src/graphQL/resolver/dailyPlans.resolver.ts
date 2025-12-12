@@ -372,11 +372,14 @@ export const DailyPlanResolver = {
     }
 
     let date: Date;
+    console.log(planDate);
     try {
       date = toUtcMidnight(planDate);
     } catch (e: any) {
       return createResponse(400, false, e.message || "Invalid Plan Date");
     }
+
+    console.log(date);
 
     let abmId: any;
 

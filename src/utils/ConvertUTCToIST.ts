@@ -12,21 +12,49 @@ export function nowIST(): Date {
 }
 
 
-export function toUtcMidnight(dateStr: string): Date {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateStr);
-  if (m) {
-    const [_, d, mo, y] = m;
-    return new Date(Date.UTC(+y, +mo - 1, +d, 0, 0, 0, 0));
+export function toUtcMidnight(planDate: string): Date {
+  const s = planDate.trim();
+
+  // dd/mm/yyyy  OR  mm/dd/yyyy (we'll read as dd/mm by default)
+  const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (slash) {
+    let dd = Number(slash[1]);
+    let mm = Number(slash[2]);
+    const yyyy = Number(slash[3]);
+
+    // if clearly mm/dd (second part > 12), swap
+    if (mm > 12) {
+      const tmp = dd;
+      dd = mm;
+      mm = tmp;
+    }
+
+    const d = new Date();
+    d.setUTCFullYear(yyyy, mm - 1, dd);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
   }
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
-  if (isoMatch) {
-    const [_, y, mo, d] = isoMatch;
-    return new Date(Date.UTC(+y, +mo - 1, +d, 0, 0, 0, 0));
+
+  // yyyy-mm-dd
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) {
+    const yyyy = Number(iso[1]);
+    const mm = Number(iso[2]);
+    const dd = Number(iso[3]);
+
+    const d = new Date();
+    d.setUTCFullYear(yyyy, mm - 1, dd);
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
   }
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) throw new Error("Invalid date format (expected dd/mm/yyyy or yyyy-mm-dd)");
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+
+  // fallback: parse whatever JS understands
+  const d = new Date(s);
+  if (isNaN(d.getTime())) throw new Error("Invalid date format");
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
 }
+
 
 
 export function istTodayUtcRange(): { start: Date; end: Date } {

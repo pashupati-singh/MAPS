@@ -1,0 +1,172 @@
+import { PrismaClient } from "@prisma/client";
+import { createResponse } from "../../utils/response";
+import { Context } from "../../context";
+import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
+
+const prisma = new PrismaClient();
+
+export const VisitPlansResolver = {
+  Query: {
+    getVisitPlans: async (
+      _: any,
+      args: { page?: number; limit?: number; workingAreaId?: number; date?: string },
+      context: Context
+    ) => {
+      try {
+        if (!context || context.authError) {
+          return { code: 400, success: false, message: context?.authError || "Authorization Error", data: [], lastPage: 0 };
+        }
+
+        const role = context.user?.role;
+        const userId = context.user?.userId;
+
+        const page = args.page && args.page > 0 ? args.page : 1;
+        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+        const where: any = {};
+
+        if (role === "ABM") where.abmId = userId;
+        else if (role === "MR") where.mrId = userId;
+        else return { code: 400, success: false, message: "Only ABM/MR can view visit plans", data: [], lastPage: 0 };
+
+        if (typeof args.workingAreaId === "number") where.workingAreaId = args.workingAreaId;
+
+        if (args.date) {
+          const d = toUtcMidnight(args.date);
+          where.date = d;
+        }
+
+        const total = await prisma.visitPlans.count({ where });
+        const lastPage = Math.ceil(total / limit) || 1;
+
+        const data = await prisma.visitPlans.findMany({
+          where,
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: [{ date: "desc" }, { id: "desc" }],
+          include: {
+            WorkingArea: true,
+            abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
+            mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
+          },
+        });
+
+        return { code: 200, success: true, message: "Visit plans fetched successfully", data, lastPage };
+      } catch (err: any) {
+        return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
+      }
+    },
+  },
+
+  Mutation: {
+    createVisitPlans: async (_: any, { data }: any, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return { code: 400, success: false, message: context?.authError || "Authorization Error", data: [], lastPage: 0 };
+    }
+    if (context.user?.role !== "ABM") {
+      return { code: 400, success: false, message: "Only ABM can create visit plans", data: [], lastPage: 0 };
+    }
+
+    const abmId = context.user.userId;
+    const companyId = context.user.companyId;
+    const { workingAreaId, date } = data;
+
+    if (!workingAreaId) return { code: 400, success: false, message: "workingAreaId is required", data: [], lastPage: 0 };
+    if (!date) return { code: 400, success: false, message: "date is required", data: [], lastPage: 0 };
+
+    const planDate = toUtcMidnight(date);
+
+    const assignments = await prisma.userWorkingArea.findMany({
+      where: {
+        workingAreaId,
+        User: { is: { role: "MR", companyId } },
+      },
+      select: { userId: true },
+    });
+
+    const mrIds = assignments
+      .map(a => a.userId)
+      .filter((x): x is number => typeof x === "number");
+
+    if (mrIds.length === 0) {
+      return { code: 404, success: false, message: "No MR found for this working area", data: [], lastPage: 0 };
+    }
+
+    const alreadyExists = await prisma.visitPlans.findFirst({
+      where: {
+        OR: [
+          { abmId, date: planDate },
+          { mrId: { in: mrIds }, date: planDate },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (alreadyExists) {
+      return {
+        code: 409,
+        success: false,
+        message: "Visit plan already exists for this date.",
+        data: [],
+        lastPage: 0,
+      };
+    }
+
+    const created = await prisma.$transaction(
+      mrIds.map(mrId =>
+        prisma.visitPlans.create({
+          data: {
+            abmId,
+            mrId,
+            workingAreaId,
+            date: planDate,
+            visitComplete: false,
+            isApprove: false,
+          },
+          include: {
+            WorkingArea: true,
+            abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
+            mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
+          },
+        })
+      )
+    );
+
+    return { code: 201, success: true, message: "Visit plans created successfully", data: created, lastPage: 1 };
+  } catch (err: any) {
+    return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
+  }
+},
+
+
+    approveVisitPlan: async (_: any, { visitPlanId }: { visitPlanId: number }, context: Context) => {
+      try {
+        if (!context || context.authError) return createResponse(400, false, context?.authError || "Authorization Error");
+        if (context.user?.role !== "MR") return createResponse(400, false, "Only MR can approve visit plan");
+        if (!visitPlanId) return createResponse(400, false, "visitPlanId is required");
+
+        const userId = context.user.userId;
+
+        const plan = await prisma.visitPlans.findUnique({ where: { id: visitPlanId } });
+        if (!plan) return createResponse(404, false, "Visit plan not found");
+
+        if (plan.mrId !== userId) return createResponse(403, false, "You are not allowed to approve this visit plan");
+
+        const updated = await prisma.visitPlans.update({
+          where: { id: visitPlanId },
+          data: { isApprove: true },
+          include: {
+            WorkingArea: true,
+            abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
+            mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
+          },
+        });
+
+        return createResponse(200, true, "Visit plan approved successfully", updated);
+      } catch (err: any) {
+        return createResponse(500, false, err.message);
+      }
+    },
+  },
+};

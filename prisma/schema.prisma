@@ -110,6 +110,8 @@ model User {
   UserDoctor_UserDoctor_abmIdToUser    UserDoctor[]      @relation("UserDoctor_abmIdToUser")
   UserDoctor_UserDoctor_userIdToUser   UserDoctor[]      @relation("UserDoctor_userIdToUser")
   UserWorkingArea                      UserWorkingArea[]
+  VisitPlans_VisitPlans_abmIdToUser    VisitPlans[]      @relation("VisitPlans_abmIdToUser")
+  VisitPlans_VisitPlans_mrIdToUser     VisitPlans[]      @relation("VisitPlans_mrIdToUser")
 }
 
 model Address {
@@ -460,6 +462,7 @@ model WorkingArea {
   DoctorCompanyWorkingArea  DoctorCompanyWorkingArea[]
   Sale                      Sale[]
   UserWorkingArea           UserWorkingArea[]
+  VisitPlans                VisitPlans[]
   Company                   Company                     @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
@@ -589,6 +592,19 @@ model UserDoctor {
   @@index([abmId])
   @@index([doctorCompanyId])
   @@index([userId])
+}
+
+model VisitPlans {
+  id                          Int          @id @default(autoincrement())
+  abmId                       Int?
+  mrId                        Int?
+  workingAreaId               Int?
+  date                        DateTime?    @db.Date
+  visitComplete               Boolean?     @default(false)
+  isApprove                   Boolean      @default(false)
+  abm                         User?        @relation("VisitPlans_abmIdToUser", fields: [abmId], references: [id])
+  mr                          User?        @relation("VisitPlans_mrIdToUser", fields: [mrId], references: [id])
+  WorkingArea                 WorkingArea? @relation(fields: [workingAreaId], references: [id])
 }
 
 enum CompanySize {
