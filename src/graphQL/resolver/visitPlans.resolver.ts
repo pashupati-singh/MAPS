@@ -1,4 +1,3 @@
-// -------------------- resolver --------------------
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";

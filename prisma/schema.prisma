@@ -66,52 +66,54 @@ model PurchaseHistory {
 }
 
 model User {
-  id                                   Int               @id @default(autoincrement())
-  companyId                            Int
-  email                                String            @unique
-  phone                                String            @unique
-  isEmailVerified                      Boolean           @default(false)
-  isPhoneVerified                      Boolean           @default(false)
-  password                             String
-  role                                 UserRole
-  status                               UserStatus        @default(ACTIVE)
-  phoneVerificationCode                String?
-  phoneVerificationExpiry              DateTime?
-  emailVerificationToken               String?
-  emailVerificationExpiry              DateTime?
-  mpin                                 String?
-  createdAt                            DateTime          @default(now())
-  updatedAt                            DateTime          @updatedAt
-  abmId                                Int?
-  division                             String?
-  name                                 String?
-  joiningDate                          String?
-  image                                String?
-  dailyCallReportsAsAbm                DailyCallReport[] @relation("ABMReports")
-  dailyCallReportsAsMr                 DailyCallReport[] @relation("MRReports")
-  abmDailyPlans                        DailyPlan[]       @relation("ABMDailyPlans")
-  mrDailyPlans                         DailyPlan[]       @relation("MRDailyPlans")
-  Default                              Default[]
-  expense                              Expense[]
-  productTarget                        ProductTarget[]
-  QuickAction                          QuickAction[]
-  Remindar                             Remindar[]
-  Request_Request_abmIdToUser          Request[]         @relation("Request_abmIdToUser")
-  Request_Request_userIdToUser         Request[]         @relation("Request_userIdToUser")
-  Sale_Sale_abmIdToUser                Sale[]            @relation("Sale_abmIdToUser")
-  sale                                 Sale[]
-  stocks                               Stock[]
-  target                               Target[]
-  abm                                  User?             @relation("ABM_MRs", fields: [abmId], references: [id])
-  mrs                                  User[]            @relation("ABM_MRs")
-  company                              Company           @relation(fields: [companyId], references: [id])
-  UserChemist_UserChemist_abmIdToUser  UserChemist[]     @relation("UserChemist_abmIdToUser")
-  UserChemist_UserChemist_userIdToUser UserChemist[]     @relation("UserChemist_userIdToUser")
-  UserDoctor_UserDoctor_abmIdToUser    UserDoctor[]      @relation("UserDoctor_abmIdToUser")
-  UserDoctor_UserDoctor_userIdToUser   UserDoctor[]      @relation("UserDoctor_userIdToUser")
-  UserWorkingArea                      UserWorkingArea[]
-  VisitPlans_VisitPlans_abmIdToUser    VisitPlans[]      @relation("VisitPlans_abmIdToUser")
-  VisitPlans_VisitPlans_mrIdToUser     VisitPlans[]      @relation("VisitPlans_mrIdToUser")
+  id                                              Int               @id @default(autoincrement())
+  companyId                                       Int
+  email                                           String            @unique
+  phone                                           String            @unique
+  isEmailVerified                                 Boolean           @default(false)
+  isPhoneVerified                                 Boolean           @default(false)
+  password                                        String
+  role                                            UserRole
+  status                                          UserStatus        @default(ACTIVE)
+  phoneVerificationCode                           String?
+  phoneVerificationExpiry                         DateTime?
+  emailVerificationToken                          String?
+  emailVerificationExpiry                         DateTime?
+  mpin                                            String?
+  createdAt                                       DateTime          @default(now())
+  updatedAt                                       DateTime          @updatedAt
+  abmId                                           Int?
+  division                                        String?
+  name                                            String?
+  joiningDate                                     String?
+  image                                           String?
+  dailyCallReportsAsAbm                           DailyCallReport[] @relation("ABMReports")
+  dailyCallReportsAsMr                            DailyCallReport[] @relation("MRReports")
+  abmDailyPlans                                   DailyPlan[]       @relation("ABMDailyPlans")
+  mrDailyPlans                                    DailyPlan[]       @relation("MRDailyPlans")
+  Default                                         Default[]
+  expense                                         Expense[]
+  Notification_Notification_notifyCreatedByToUser Notification[]    @relation("Notification_notifyCreatedByToUser")
+  Notification_Notification_userToNotifyToUser    Notification[]    @relation("Notification_userToNotifyToUser")
+  productTarget                                   ProductTarget[]
+  QuickAction                                     QuickAction[]
+  Remindar                                        Remindar[]
+  Request_Request_abmIdToUser                     Request[]         @relation("Request_abmIdToUser")
+  Request_Request_userIdToUser                    Request[]         @relation("Request_userIdToUser")
+  Sale_Sale_abmIdToUser                           Sale[]            @relation("Sale_abmIdToUser")
+  sale                                            Sale[]
+  stocks                                          Stock[]
+  target                                          Target[]
+  abm                                             User?             @relation("ABM_MRs", fields: [abmId], references: [id])
+  mrs                                             User[]            @relation("ABM_MRs")
+  company                                         Company           @relation(fields: [companyId], references: [id])
+  UserChemist_UserChemist_abmIdToUser             UserChemist[]     @relation("UserChemist_abmIdToUser")
+  UserChemist_UserChemist_userIdToUser            UserChemist[]     @relation("UserChemist_userIdToUser")
+  UserDoctor_UserDoctor_abmIdToUser               UserDoctor[]      @relation("UserDoctor_abmIdToUser")
+  UserDoctor_UserDoctor_userIdToUser              UserDoctor[]      @relation("UserDoctor_userIdToUser")
+  UserWorkingArea                                 UserWorkingArea[]
+  VisitPlans_VisitPlans_abmIdToUser               VisitPlans[]      @relation("VisitPlans_abmIdToUser")
+  VisitPlans_VisitPlans_mrIdToUser                VisitPlans[]      @relation("VisitPlans_mrIdToUser")
 }
 
 model Address {
@@ -605,6 +607,20 @@ model VisitPlans {
   abm           User?           @relation("VisitPlans_abmIdToUser", fields: [abmId], references: [id])
   mr            User?           @relation("VisitPlans_mrIdToUser", fields: [mrId], references: [id])
   WorkingArea   WorkingArea?    @relation(fields: [workingAreaId], references: [id])
+}
+
+model Notification {
+  tableId                                 Int?
+  type                                    String?
+  title                                   String?
+  message                                 String?
+  date                                    DateTime? @db.Date
+  userToNotify                            Int?
+  notifyCreatedBy                         Int?
+  read                                    Boolean   @default(false)
+  id                                      Int       @id(map: "notification_pkey") @default(autoincrement())
+  NotifyCreatedBy User?     @relation("Notification_notifyCreatedByToUser", fields: [notifyCreatedBy], references: [id], onUpdate: NoAction, map: "notification_notify_created_by_fkey")
+  NotifyToUser    User?     @relation("Notification_userToNotifyToUser", fields: [userToNotify], references: [id], onUpdate: NoAction, map: "notification_user_to_notify_fkey")
 }
 
 enum CompanySize {
