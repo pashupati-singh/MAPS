@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";
 import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
+import { createNotification } from "../../utils/CreateNotificaiton";
 
 const prisma = new PrismaClient();
 
@@ -89,14 +90,13 @@ export const VisitPlansResolver = {
       return { code: 404, success: false, message: "No MR found for this working area", data: [], lastPage: 0 };
     }
 
-    // ✅ Block only if there's any NON-rejected plan for that date (ABM or any MR)
     const activeExists = await prisma.visitPlans.findFirst({
       where: {
         OR: [
           { abmId, date: planDate },
           { mrId: { in: mrIds }, date: planDate },
         ],
-        status: { in: ["pending", "approved", "completed"] }, // allow if only rejected exists
+        status: { in: ["pending", "approved", "completed"] },
       },
       select: { id: true },
     });
@@ -131,6 +131,9 @@ export const VisitPlansResolver = {
       )
     );
 
+  createNotification({tableId :  created[0].id, type : "VisitPlans" , title : "Visit Plan" , message : `${created[0]?.abm?.name} has created visit plan for ${created[0]?.WorkingArea?.workingArea} on ${created[0]?.date}` , date : new Date() , userToNotify : created[0]?.mrId, notifyCreatedBy : created[0].abmId})
+
+
     return { code: 201, success: true, message: "Visit plans created successfully", data: created, lastPage: 1 };
   } catch (err: any) {
     return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
@@ -147,8 +150,6 @@ export const VisitPlansResolver = {
     const { visitPlanId, approve, rejected } = data;
 
     if (!visitPlanId) return createResponse(400, false, "visitPlanId is required");
-
-    // only one flag allowed
     if ((approve && rejected) || (!approve && !rejected)) {
       return createResponse(400, false, "Send either approve:true OR rejected:true");
     }
@@ -156,8 +157,6 @@ export const VisitPlansResolver = {
     const plan = await prisma.visitPlans.findUnique({ where: { id: visitPlanId } });
     if (!plan) return createResponse(404, false, "Visit plan not found");
     if (plan.mrId !== userId) return createResponse(403, false, "You are not allowed to update this visit plan");
-
-    // Typically MR can decide only when pending
     if (plan.status !== "pending") {
       return createResponse(400, false, `Cannot update when status is ${plan.status}`);
     }
@@ -173,6 +172,9 @@ export const VisitPlansResolver = {
         mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
       },
     });
+
+      createNotification({tableId :  updated.id, type : "VisitPlans" , title : "Visit Plan" , message : `${updated?.mr?.name} has ${approve?"approved":"rejected"} visit plan for ${updated?.WorkingArea?.workingArea} on ${updated?.date}` , date : new Date() , userToNotify : updated?.abmId, notifyCreatedBy : updated.mrId})
+
 
     return createResponse(200, true, `Visit plan ${nextStatus} successfully`, updated);
   } catch (err: any) {

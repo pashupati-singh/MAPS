@@ -8,7 +8,7 @@ type CreateNotificationArgs = {
   title: string;
   message: string;
   date: string | Date;
-  userToNotify: number;
+  userToNotify: number | null;
   notifyCreatedBy?: number | null;
 };
 

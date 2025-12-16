@@ -93,6 +93,7 @@ model User {
   mrDailyPlans                                    DailyPlan[]       @relation("MRDailyPlans")
   Default                                         Default[]
   expense                                         Expense[]
+  Expense_Expense_abmIdToUser                     Expense[]         @relation("Expense_abmIdToUser")
   Notification_Notification_notifyCreatedByToUser Notification[]    @relation("Notification_notifyCreatedByToUser")
   Notification_Notification_userToNotifyToUser    Notification[]    @relation("Notification_userToNotifyToUser")
   productTarget                                   ProductTarget[]
@@ -421,24 +422,26 @@ model Sale {
 }
 
 model Expense {
-  id             Int              @id @default(autoincrement())
-  userId         Int
-  companyId      Int
-  amount         Float
-  ExpenseMonth   DateTime
-  isApproved     Boolean          @default(false)
-  isCompleted    Boolean          @default(false)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  totalTA        Float?
-  totalDA        Float?
-  totalHA        Float?
-  totalCA        Float?
-  totalOA        Float?
-  totalMis       Float?
-  company        Company          @relation(fields: [companyId], references: [id])
-  user           User             @relation(fields: [userId], references: [id])
-  ExpenseDetails ExpenseDetails[]
+  id                       Int              @id @default(autoincrement())
+  userId                   Int
+  companyId                Int
+  amount                   Float
+  ExpenseMonth             DateTime
+  isApproved               Boolean          @default(false)
+  isCompleted              Boolean          @default(false)
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  totalTA                  Float?
+  totalDA                  Float?
+  totalHA                  Float?
+  totalCA                  Float?
+  totalOA                  Float?
+  totalMis                 Float?
+  abmId                    Int?
+  company                  Company          @relation(fields: [companyId], references: [id])
+  user                     User             @relation(fields: [userId], references: [id])
+  User_Expense_abmIdToUser User?            @relation("Expense_abmIdToUser", fields: [abmId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK_Expense_User_abmId")
+  ExpenseDetails           ExpenseDetails[]
 }
 
 model Remindar {
@@ -610,15 +613,15 @@ model VisitPlans {
 }
 
 model Notification {
-  tableId                                 Int?
-  type                                    String?
-  title                                   String?
-  message                                 String?
-  date                                    DateTime? @db.Date
-  userToNotify                            Int?
-  notifyCreatedBy                         Int?
-  read                                    Boolean   @default(false)
-  id                                      Int       @id(map: "notification_pkey") @default(autoincrement())
+  tableId         Int?
+  type            String?
+  title           String?
+  message         String?
+  date            DateTime? @db.Date
+  userToNotify    Int?
+  notifyCreatedBy Int?
+  read            Boolean   @default(false)
+  id              Int       @id(map: "notification_pkey") @default(autoincrement())
   NotifyCreatedBy User?     @relation("Notification_notifyCreatedByToUser", fields: [notifyCreatedBy], references: [id], onUpdate: NoAction, map: "notification_notify_created_by_fkey")
   NotifyToUser    User?     @relation("Notification_userToNotifyToUser", fields: [userToNotify], references: [id], onUpdate: NoAction, map: "notification_user_to_notify_fkey")
 }

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";
+import { createNotification } from "../../utils/CreateNotificaiton";
 
 const prisma = new PrismaClient();
 
@@ -122,6 +123,9 @@ export const RequestResolver = {
             associates: associates ?? undefined, 
           },
         });
+
+          createNotification({tableId :  userId, type : "Request" , title : "New Request" , message : `Your have New Requested from ${abmId.abmId} for ${requestType}` , date : new Date() , userToNotify : abmId.abmId, notifyCreatedBy : userId})
+
 
         return createResponse(201, true, "Request created successfully", newRequest);
       } catch (err: any) {
@@ -349,6 +353,10 @@ export const RequestResolver = {
           where: { id: requestId },
           data: updatedData,
         });
+
+         createNotification({tableId :  userId, type : "Request" , title : `Request ${isApproved ? 'Approved' : 'Rejected'}` , message : `Your request for ${updated.requestType} has been ${isApproved ? 'Approved' : 'Rejected'}` , date : new Date() , userToNotify : updated.userId, notifyCreatedBy : userId})
+
+
 
         return createResponse(
           200,

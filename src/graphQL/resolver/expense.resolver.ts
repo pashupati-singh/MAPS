@@ -2,6 +2,8 @@ import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";
 import { toUtcMidnight } from "../../utils/ConvertUTCToIST";
+import { createNotification } from "../../utils/CreateNotificaiton";
+import { getMonthNameUTC } from "../../utils/getMonthName";
 
 const prisma = new PrismaClient();
 
@@ -10,6 +12,7 @@ export const ExpenseResolvers = {
     details(parent: any) {
       return parent.ExpenseDetails ?? [];
     },
+    ExpenseMonth: (parent: any) => (parent.ExpenseMonth ? new Date(parent.ExpenseMonth).toISOString() : null),
   },
   Query: {
     async getExpenseById(_: any, { id }: { id: number }, context: Context) {
@@ -176,6 +179,11 @@ export const ExpenseResolvers = {
         let expenseId: number;
 
         if (!existingExpense) {
+           const mrUser = await prisma.user.findUnique({
+           where: { id: userId },
+           select: { abmId: true },
+           });
+  const abmId = mrUser?.abmId ?? null;
           const createdExpense = await prisma.expense.create({
             data: {
               userId,
@@ -188,6 +196,7 @@ export const ExpenseResolvers = {
               totalOA: deltaTotalOA,
               totalMis: deltaTotalMis,
               amount: deltaAmount,
+              abmId
             },
           });
           expenseId = createdExpense.id;
@@ -246,6 +255,8 @@ export const ExpenseResolvers = {
     async completeExpense(_: any, { expenseId }: { expenseId: number }, context: Context) {
       try {
         if (!context?.user) return createResponse(400, false, "User not authenticated");
+        if(!context.user.userId) return createResponse(400, false, "User not authenticated");
+        const userId = context.user.userId
 
         const expense = await prisma.expense.findUnique({
           where: { id: expenseId },
@@ -260,8 +271,6 @@ export const ExpenseResolvers = {
         if (!companyId || expense.companyId !== companyId) {
           return createResponse(403, false, "Not authorised to update this expense");
         }
-
-        // MRs can only complete their own expenses
         if (role === "MR" && expense.userId !== ctxUserId) {
           return createResponse(403, false, "You can only complete your own expenses");
         }
@@ -269,8 +278,12 @@ export const ExpenseResolvers = {
         const updated = await prisma.expense.update({
           where: { id: expenseId },
           data: { isCompleted: true },
-          include: { ExpenseDetails: true },
+          include: { ExpenseDetails: true , user: true },
         });
+   
+        const month = getMonthNameUTC(updated.ExpenseMonth);
+
+    createNotification({tableId :  expenseId, type : "Expense" , title : "Expense Request" , message : `${updated.user?.name} Submit the expense of amount ${updated.amount} for the month of ${month}` , date : new Date() , userToNotify : updated?.abmId, notifyCreatedBy : userId})
 
         return createResponse(200, true, "Expense marked as completed", updated);
       } catch (err: any) {
@@ -310,8 +323,12 @@ export const ExpenseResolvers = {
         const updated = await prisma.expense.update({
           where: { id: expenseId },
           data: { isApproved: true },
-          include: { ExpenseDetails: true },
+          include: { ExpenseDetails: true , user : true },
         });
+
+         const month = getMonthNameUTC(updated.ExpenseMonth);
+
+    createNotification({tableId :  expenseId, type : "Expense" , title : "Expense Approved" , message : `Expense of months ${month} has been approved` , date : new Date() , userToNotify : updated?.userId, notifyCreatedBy : context.user.userId})
 
         return createResponse(200, true, "Expense approved successfully", updated);
       } catch (err: any) {

@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { createResponse } from "../../utils/response";
 import { Context } from "../../context";
 import { istTodayUtcRange, toUtcMidnight } from "../../utils/ConvertUTCToIST";
+import { createNotification } from "../../utils/CreateNotificaiton";
 
 const prisma = new PrismaClient();
 
@@ -343,7 +344,7 @@ export const DailyPlanResolver = {
   },
 
   Mutation: {
-    createDailyPlan: async (_: any, { data }: any, context: Context) => {
+  createDailyPlan: async (_: any, { data }: any, context: Context) => {
   try {
     if (!context || !context.user) {
       return createResponse(400, false, "Invalid token or user");
@@ -372,15 +373,11 @@ export const DailyPlanResolver = {
     }
 
     let date: Date;
-    console.log(planDate);
     try {
       date = toUtcMidnight(planDate);
     } catch (e: any) {
       return createResponse(400, false, e.message || "Invalid Plan Date");
     }
-
-    console.log(date);
-
     let abmId: any;
 
     if (role === "MR") {
@@ -461,6 +458,10 @@ const existingPlan = await prisma.dailyPlan.findFirst({
         },
       },
     });
+   if(role === "MR"){
+      const obj ={tableId : newPlan.id , type : "DailyPlan" , title : "Daily Plan" , message : `Today's Plan of ${abmId.name}` , date : new Date() , userToNotify : abmId.abmId, notifyCreatedBy : userId}
+    createNotification(obj)
+   }
 
     return createResponse(201, true, "Daily plan created successfully", newPlan);
   } catch (err: any) {
@@ -547,7 +548,6 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       return createResponse(400, false, "Plan ID is required");
     }
 
-    // 🔹 Load the plan + its doctors/chemists (needed to clone)
     const plan = await prisma.dailyPlan.findUnique({
       where: { id: dailyPlanId },
       include: {
@@ -643,6 +643,8 @@ const existingPlan = await prisma.dailyPlan.findFirst({
       where: { id: dailyPlanId },
       data: updatedData,
     });
+
+    createNotification({tableId :  dailyPlanId, type : "DailyPlan" , title : "Daily Plan" , message : `Your today's Plan is ${isApproved ? "Approved" : "Rejected"}` , date : new Date() , userToNotify : plan?.mrId, notifyCreatedBy : userId})
 
     return createResponse(200, true, "Daily plan updated by ABM successfully", updatedPlan);
   } catch (err: any) {
