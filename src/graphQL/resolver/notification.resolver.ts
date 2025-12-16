@@ -9,6 +9,7 @@ export const NotificationResolver = {
   Notification: {
     date: (parent: any) => (parent.date ? new Date(parent.date).toISOString() : null),
     notifyCreatedBy: (parent: any) => parent.notifyCreatedByUser ?? null,
+    createdAt : (parent: any) => (parent.createdAt ? new Date(parent.createdAt).toISOString() : null),
   },
 
   Query: {

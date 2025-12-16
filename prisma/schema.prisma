@@ -622,6 +622,7 @@ model Notification {
   notifyCreatedBy Int?
   read            Boolean   @default(false)
   id              Int       @id(map: "notification_pkey") @default(autoincrement())
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   NotifyCreatedBy User?     @relation("Notification_notifyCreatedByToUser", fields: [notifyCreatedBy], references: [id], onUpdate: NoAction, map: "notification_notify_created_by_fkey")
   NotifyToUser    User?     @relation("Notification_userToNotifyToUser", fields: [userToNotify], references: [id], onUpdate: NoAction, map: "notification_user_to_notify_fkey")
 }

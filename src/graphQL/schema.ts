@@ -31,6 +31,8 @@ import { DateSummaryTypeDefs } from './typeDefs/dateSummary.typeDefs';
 import { DateSummaryResolver } from './resolver/dateSummary.resolver';
 import { VisitPlansResolver } from './resolver/visitPlans.resolver';
 import { VisitPlanTypeDefs } from './typeDefs/visitPlans.typeDefs';
+import { NotificationTypeDefs } from './typeDefs/notification.typeDefs';
+import { NotificationResolver } from './resolver/notification.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -49,7 +51,8 @@ export const typeDefs = mergeTypeDefs([
     RequestTypeDefs,
     SaleTypeDefs,
     DateSummaryTypeDefs,
-    VisitPlanTypeDefs
+    VisitPlanTypeDefs,
+    NotificationTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -68,6 +71,7 @@ export const resolvers = mergeResolvers([
     RequestResolver,
     SaleResolvers,
     DateSummaryResolver,
-    VisitPlansResolver
+    VisitPlansResolver,
+    NotificationResolver
 
 ]);
