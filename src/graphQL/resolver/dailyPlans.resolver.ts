@@ -387,6 +387,7 @@ export const DailyPlanResolver = {
       },
       select: {
         abmId: true,
+        name : true
       },
     })
     }

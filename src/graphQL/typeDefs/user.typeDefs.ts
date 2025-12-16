@@ -222,6 +222,7 @@ scalar Upload
     events: [EventParty!]!
     dailyplans: [DailyPlan!]!
     quickactions: QuickAction
+    notificationCount: Int
   }
 
   type HomePageResponse {

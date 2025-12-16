@@ -359,6 +359,12 @@ const filters =
     const actions = await prisma.quickAction.findFirst({
           where: { userId, companyId },
         });
+    const notificationCount = await prisma.notification.count({
+      where: {
+        userToNotify: userId,
+        read: false,
+      },
+    })
 
     return {
       code: 200,
@@ -369,7 +375,8 @@ const filters =
         events: events ?? [],     
         dailyplans: dailyplans ?? [],
         quickactions : actions?? null,
-        dailyPlansOfMRs: role === "ABM" ? dailyPlansOfMRs : []
+        dailyPlansOfMRs: role === "ABM" ? dailyPlansOfMRs : [],
+        notificationCount : notificationCount >0 ? notificationCount : 0
       },
     };
   } catch (err: any) {
