@@ -46,8 +46,16 @@ export const VisitPlanTypeDefs = `#graphql
     lastPage: Int
   }
 
+  input VisitPlansFilterInput {
+  memberRole: String  # "MR" | "ABM"
+  memberId: Int
+  workingAreaId: Int
+  startDate: String   # dd/mm/yyyy (same format you already use)
+  endDate: String     # dd/mm/yyyy
+}
+
   extend type Query {
-    getVisitPlans(page: Int, limit: Int, workingAreaId: Int, date: String): VisitPlanResponses!
+    getVisitPlans(page: Int, limit: Int, filter: VisitPlansFilterInput): VisitPlanResponses!
   }
 
   extend type Mutation {

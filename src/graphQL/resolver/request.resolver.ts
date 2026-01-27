@@ -7,61 +7,145 @@ const prisma = new PrismaClient();
 
 export const RequestResolver = {
   Query: {
+    // getRequests: async (
+    //   _: any,
+    //   args: { page?: number; limit?: number },
+    //   context: Context
+    // ) => {
+    //   try {
+    //     if (!context || context.authError) {
+    //       return createResponse(400, false, context?.authError || "Authorization Error");
+    //     }
+
+    //     if (!context.user && !context.company) {
+    //       return createResponse(400, false, "User / Company authorization required");
+    //     }
+
+    //     const { userId, role, companyId: userCompanyId } = context.user || {};
+    //     const companyId = context.company?.id || userCompanyId;
+
+    //     if (!companyId) {
+    //       return createResponse(400, false, "Company authorization required");
+    //     }
+
+    //     const where: any = { companyId };
+
+    //     if (userId && role === "MR") {
+    //       where.userId = userId;
+    //     } else if (userId && role === "ABM") {
+    //       where.abmId = userId;
+    //     }
+
+    //     const page = args.page && args.page > 0 ? args.page : 1;
+    //     const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    //     const skip = (page - 1) * limit;
+
+    //     const total = await prisma.request.count({ where });
+    //     const lastPage = Math.ceil(total / limit);
+
+    //     const data = await prisma.request.findMany({
+    //       where,
+    //       skip,
+    //       take: limit,
+    //       orderBy: { id: "desc" },
+    //     });
+
+    //     return {
+    //       code: 200,
+    //       success: true,
+    //       message: "Requests fetched successfully",
+    //       data,
+    //       lastPage,
+    //     };
+    //   } catch (err: any) {
+    //     console.error("Error in getRequests:", err);
+    //     return createResponse(500, false, err.message);
+    //   }
+    // },
+
     getRequests: async (
-      _: any,
-      args: { page?: number; limit?: number },
-      context: Context
-    ) => {
-      try {
-        if (!context || context.authError) {
-          return createResponse(400, false, context?.authError || "Authorization Error");
-        }
+  _: any,
+  args: { page?: number; limit?: number; filter?: { memberRole?: string; memberId?: number } },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context?.authError || "Authorization Error");
+    }
 
-        if (!context.user && !context.company) {
-          return createResponse(400, false, "User / Company authorization required");
-        }
+    if (!context.user && !context.company) {
+      return createResponse(400, false, "User / Company authorization required");
+    }
 
-        const { userId, role, companyId: userCompanyId } = context.user || {};
-        const companyId = context.company?.id || userCompanyId;
+    const user = context.user;
+    const userId = user?.userId;
+    const role = user?.role; // "MR" | "ABM" | "company" (as you said)
+    const roleUpper = role ? String(role).toUpperCase() : "";
 
-        if (!companyId) {
-          return createResponse(400, false, "Company authorization required");
-        }
+    // ✅ companyId resolution (your requirement)
+    const companyId =
+      context.company?.id ||
+      (roleUpper === "COMPANY" ? userId : user?.companyId);
 
-        const where: any = { companyId };
+    if (!companyId) {
+      return createResponse(400, false, "Company authorization required");
+    }
 
-        if (userId && role === "MR") {
-          where.userId = userId;
-        } else if (userId && role === "ABM") {
-          where.abmId = userId;
-        }
+    const where: any = { companyId };
 
-        const page = args.page && args.page > 0 ? args.page : 1;
-        const limit = args.limit && args.limit > 0 ? args.limit : 10;
-        const skip = (page - 1) * limit;
+    // ✅ If MR/ABM is logged in, restrict to self
+    if (userId && roleUpper === "MR") {
+      where.userId = userId;
+    } else if (userId && roleUpper === "ABM") {
+      where.abmId = userId;
+    }
 
-        const total = await prisma.request.count({ where });
-        const lastPage = Math.ceil(total / limit);
+    // ✅ If COMPANY is logged in, allow filtering by member passed from client
+    if (roleUpper === "COMPANY") {
+      const memberRole = args.filter?.memberRole ? String(args.filter.memberRole).toUpperCase() : undefined;
+      const memberId = args.filter?.memberId;
 
-        const data = await prisma.request.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: { id: "desc" },
-        });
-
-        return {
-          code: 200,
-          success: true,
-          message: "Requests fetched successfully",
-          data,
-          lastPage,
-        };
-      } catch (err: any) {
-        console.error("Error in getRequests:", err);
-        return createResponse(500, false, err.message);
+      if (memberRole && !memberId) {
+        return createResponse(400, false, "memberId is required when memberRole is provided");
       }
-    },
+
+      if (memberRole === "MR") {
+        where.userId = memberId;
+      } else if (memberRole === "ABM") {
+        where.abmId = memberId;
+      } else if (memberRole) {
+        return createResponse(400, false, "memberRole must be MR or ABM");
+      }
+      // if no memberRole provided → company gets all requests of the company
+    }
+
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.request.count({ where });
+    const lastPage = Math.ceil(total / limit);
+
+    const data = await prisma.request.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { id: "desc" },
+    });
+
+    return {
+      code: 200,
+      success: true,
+      message: "Requests fetched successfully",
+      data,
+      lastPage,
+    };
+  } catch (err: any) {
+    console.error("Error in getRequests:", err);
+    return createResponse(500, false, err.message);
+  }
+},
+
   },
 
   Mutation: {
@@ -123,10 +207,7 @@ export const RequestResolver = {
             associates: associates ?? undefined, 
           },
         });
-
           createNotification({tableId :  userId, type : "Request" , title : "New Request" , message : `Your have New Requested from ${abmId.abmId} for ${requestType}` , date : new Date() , userToNotify : abmId.abmId, notifyCreatedBy : userId})
-
-
         return createResponse(201, true, "Request created successfully", newRequest);
       } catch (err: any) {
         console.error("Error in createRequest:", err);

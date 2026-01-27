@@ -7,31 +7,81 @@ import { createNotification } from "../../utils/CreateNotificaiton";
 const prisma = new PrismaClient();
 
 export const DailyPlanResolver = {
-  Query: {
-     getDailyPlansByCompanyId: async (_: any, args: { page?: number; limit?: number }, context: Context) => {
+DailyPlan: {
+    planDate: (p: any) => (p.planDate ? new Date(p.planDate).toISOString() : null),
+    createdAt: (p: any) => (p.createdAt ? new Date(p.createdAt).toISOString() : null),
+    updatedAt: (p: any) => (p.updatedAt ? new Date(p.updatedAt).toISOString() : null),
+  },
+
+  DailyCallReport: {
+    reportDate: (p: any) => (p.reportDate ? new Date(p.reportDate).toISOString() : null),
+    createdAt: (p: any) => (p.createdAt ? new Date(p.createdAt).toISOString() : null),
+    updatedAt: (p: any) => (p.updatedAt ? new Date(p.updatedAt).toISOString() : null),
+  },
+    Query: {
+     getDailyPlansByCompanyId: async (
+  _: any,
+  args: {
+    filter?: {
+      memberId?: number;
+      memberRole?: "MR" | "ABM" | string;
+      workingAreaId?: number;
+      startDate?: string;
+      endDate?: string;
+    };
+  },
+  context: Context
+) => {
   try {
     if (!context || context.authError) {
       return createResponse(400, false, context?.authError || "Authorization Error");
     }
-
-    const companyId = context.user?.companyId;
+    const companyId = context?.user?.companyId;
     if (!companyId) {
-      return createResponse(400, false, "Company authorization required");
+      return createResponse(400, false, "Company ID is missing");
     }
- if(context?.user?.role) return createResponse(400, false, "You are not authorised");
-    const page = args.page && args.page > 0 ? args.page : 1;
-    const limit = args.limit && args.limit > 0 ? args.limit : 10;
-    const skip = (page - 1) * limit;
 
-    const totalPlans = await prisma.dailyPlan.count({ where: { companyId } });
-    const lastPage = Math.ceil(totalPlans / limit);
+    const whereClause: any = { companyId };
 
+    const filter = args.filter ?? {};
+    const { memberId, memberRole, workingAreaId, startDate, endDate } = filter;
+
+    if (memberRole) {
+      if (!memberId) {
+        return createResponse(400, false, "memberId is required when memberRole is provided");
+      }
+
+      if (memberRole === "MR") {
+        whereClause.mrId = memberId;
+        whereClause.createdBy = "MR";
+      } else if (memberRole === "ABM") {
+        whereClause.abmId = memberId;
+        whereClause.createdBy = "ABM";
+      } else {
+        return createResponse(400, false, "memberRole must be MR or ABM");
+      }
+    }
+    if (workingAreaId) {
+      whereClause.workingAreaId = workingAreaId;
+    }
+    const addDaysUtc = (d: Date, days: number) =>
+      new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
+
+    if (startDate && endDate) {
+      const start = toUtcMidnight(startDate);
+      const endExclusive = addDaysUtc(toUtcMidnight(endDate), 1); 
+      whereClause.planDate = { gte: start, lt: endExclusive };
+    } else if (startDate) {
+      const start = toUtcMidnight(startDate);
+      const endExclusive = addDaysUtc(start, 1);
+      whereClause.planDate = { gte: start, lt: endExclusive };
+    }
     const plans = await prisma.dailyPlan.findMany({
-      where: { companyId },
-      skip,
-      take: limit,
+      where: whereClause,
       orderBy: { planDate: "desc" },
       include: {
+        mr: true,
+        abm: true,
         doctors: {
           include: {
             DoctorCompany: {
@@ -54,6 +104,7 @@ export const DailyPlanResolver = {
             },
           },
         },
+        WorkingArea: true,
       },
     });
 
@@ -62,13 +113,14 @@ export const DailyPlanResolver = {
       success: true,
       message: "Daily plans fetched successfully",
       data: plans,
-      lastPage,
     };
   } catch (err: any) {
     console.error("Error in getDailyPlansByCompanyId:", err);
     return createResponse(500, false, err.message);
   }
-     },
+},
+
+
 
     getDailyPlansByMRId: async (_: any, args: { page?: number; limit?: number ; filter? : {startDate?: string, endDate?: string} }, context: Context) => {
       try {
@@ -219,19 +271,28 @@ export const DailyPlanResolver = {
       }
     },
 
-    getDailyPlanById: async (_: any, { id }: { id: number } , context: Context) => {
-      try {
-        if(!context || context.authError) return createResponse(400, false, context.authError || "Authorization Error");
-        if (!context.user?.companyId) return createResponse(400, false, "Company authorization required");
-        const companyId = context?.user?.companyId;
-        if (!id) {
-          return createResponse(400, false, "Daily Plan is required");
-        }
+   getDailyPlanById: async (_: any, { id }: { id: number }, context: Context) => {
+  try {
+    if (!context || context.authError) {
+      return createResponse(400, false, context.authError || "Authorization Error");
+    }
 
-        const plan = await prisma.dailyPlan.findUnique({
-          where: { id , companyId },
-           include: {
-          doctors: {
+    const companyId = context?.user?.companyId;
+    if (!companyId) return createResponse(400, false, "Company authorization required");
+    if (!id) return createResponse(400, false, "Daily Plan is required");
+
+    const plan = await prisma.dailyPlan.findFirst({
+      where: { id, companyId },
+      include: {
+        mr: {
+          include: {
+            UserWorkingArea: { include: { WorkingArea: true } },
+          },
+        },
+        abm: true,
+        WorkingArea: true,
+
+        doctors: {
           include: {
             DoctorCompany: {
               include: {
@@ -240,8 +301,21 @@ export const DailyPlanResolver = {
                 DoctorProduct: true,
               },
             },
+
+            // ✅ This will fetch DailyCallReport rows where dailyPlanDoctorId = DailyPlanDoctor.id
+            DailyCallReport: {
+              orderBy: { reportDate: "desc" },
+              include: {
+                // optional: if you want more details inside report
+                DoctorCompany: { include: { doctor: true } },
+                ChemistCompany: { include: { chemist: true } },
+                mr: { select: { id: true, name: true, phone: true, role: true, email: true, image: true } },
+                abm: { select: { id: true, name: true, phone: true, role: true, email: true, image: true } },
+              },
+            },
           },
         },
+
         chemists: {
           include: {
             ChemistCompany: {
@@ -251,28 +325,30 @@ export const DailyPlanResolver = {
                 ChemistProduct: true,
               },
             },
+
+            // ✅ This will fetch DailyCallReport rows where dailyPlanChemistId = DailyPlanChemist.id
+            DailyCallReport: {
+              orderBy: { reportDate: "desc" },
+              include: {
+                DoctorCompany: { include: { doctor: true } },
+                ChemistCompany: { include: { chemist: true } },
+                mr: { select: { id: true, name: true, phone: true, role: true, email: true, image: true } },
+                abm: { select: { id: true, name: true, phone: true, role: true, email: true, image: true } },
+              },
+            },
           },
         },
-        mr: {
-          include: {
-            UserWorkingArea : {
-              include: {
-                WorkingArea : true
-              }
-            }
-          }
-        }
       },
-        });
+    });
 
-        if (!plan) {
-          return createResponse(404, false, "Daily plan not found");
-        }
-        return createResponse(200, true, "Daily plan fetched successfully", plan);
-      } catch (err: any) {
-        return createResponse(500, false, err.message);
-      }
-    },
+    if (!plan) return createResponse(404, false, "Daily plan not found");
+
+    return createResponse(200, true, "Daily plan fetched successfully", plan);
+  } catch (err: any) {
+    return createResponse(500, false, err.message);
+  }
+},
+
 
     getDailyPlansABMOfMr : async (_: any, __:any , context: Context) => {
       try {

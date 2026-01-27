@@ -1,9 +1,10 @@
 export const DailyPlanTypeDefs = `#graphql
  type DailyPlan {
   id: Int!
-  mrId: Int!
+  mrId: Int
   abmId: Int
   companyId: Int!
+  workingAreaId: Int
   isApproved: Boolean!
   workTogether: Boolean!
   isRejected: Boolean!
@@ -12,9 +13,34 @@ export const DailyPlanTypeDefs = `#graphql
   notes: String
   createdAt: String!
   mr: User
+  abm: User
   updatedAt: String!
   doctors: [DailyPlanDoctor!]!
   chemists: [DailyPlanChemist!]!
+  WorkingArea: WorkingArea
+  createdBy: String
+
+}
+
+type DailyCallReport {
+  id: Int!
+  typeOfReport: ReportType
+  reportDate: String
+  reportStartTime: String
+  reportEndTime: String
+  duration: Int
+  remarks: String
+
+  mrReportCompleted: Boolean
+  abmReportCompleted: Boolean
+
+  doctorCompanyId: Int
+  chemistCompanyId: Int
+  dailyPlanDoctorId: Int
+  dailyPlanChemistId: Int
+
+  createdAt: String
+  updatedAt: String
 }
 
 type User {
@@ -54,14 +80,25 @@ type DailyPlanDoctor {
   doctorCompanyId: Int
   DoctorCompany: DoctorCompany
   dcr : Boolean
+  status : String
+  DailyCallReport: [DailyCallReport!]
 }
 
 type DailyPlanChemist {
   id: Int!
   chemistCompanyId: Int
   ChemistCompany: ChemistCompany
-    dcr : Boolean
+  dcr : Boolean
+  status : String
+  DailyCallReport: [DailyCallReport!]
+}
 
+input DailyPlanCompanyFilter {
+  memberId: Int
+  memberRole: String
+  workingAreaId: Int
+  startDate: String
+  endDate: String
 }
 
 type DoctorCompany {
@@ -156,7 +193,7 @@ type Doctor {
   }
 
   type Query {
-    getDailyPlansByCompanyId(page: Int, limit: Int): DailyPlansResponse!
+  getDailyPlansByCompanyId( filter: DailyPlanCompanyFilter): DailyPlansResponse!
     getDailyPlansByMRId(page: Int, limit: Int, filter: filterByDates): DailyPlansResponse!
     getDailyPlansByABMId(page: Int, limit: Int): DailyPlansResponse!
     getDailyPlanById(id: Int!): DailyPlanResponse!

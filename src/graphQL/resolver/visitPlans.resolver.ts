@@ -11,51 +11,178 @@ export const VisitPlansResolver = {
     date: (parent: any) => (parent.date ? new Date(parent.date).toISOString() : null),
   },
   Query: {
+    // getVisitPlans: async (
+    //   _: any,
+    //   args: { page?: number; limit?: number; workingAreaId?: number; date?: string },
+    //   context: Context
+    // ) => {
+    //   try {
+    //     if (!context || context.authError) {
+    //       return { code: 400, success: false, message: context?.authError || "Authorization Error", data: [], lastPage: 0 };
+    //     }
+
+    //     const role = context.user?.role;
+    //     const userId = context.user?.userId;
+
+    //     const page = args.page && args.page > 0 ? args.page : 1;
+    //     const limit = args.limit && args.limit > 0 ? args.limit : 10;
+
+    //     const where: any = {};
+
+    //     if (role === "ABM") where.abmId = userId;
+    //     else if (role === "MR") where.mrId = userId;
+    //     else return { code: 400, success: false, message: "Only ABM/MR can view visit plans", data: [], lastPage: 0 };
+
+    //     if (typeof args.workingAreaId === "number") where.workingAreaId = args.workingAreaId;
+    //     if (args.date) where.date = toUtcMidnight(args.date);
+
+    //     const total = await prisma.visitPlans.count({ where });
+    //     const lastPage = Math.ceil(total / limit) || 1;
+
+    //     const data = await prisma.visitPlans.findMany({
+    //       where,
+    //       skip: (page - 1) * limit,
+    //       take: limit,
+    //       orderBy: [{ date: "desc" }, { id: "desc" }],
+    //       include: {
+    //         WorkingArea: true,
+    //         abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
+    //         mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
+    //       },
+    //     });
+
+    //     return { code: 200, success: true, message: "Visit plans fetched successfully", data, lastPage };
+    //   } catch (err: any) {
+    //     return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
+    //   }
+    // },
+
     getVisitPlans: async (
-      _: any,
-      args: { page?: number; limit?: number; workingAreaId?: number; date?: string },
-      context: Context
-    ) => {
-      try {
-        if (!context || context.authError) {
-          return { code: 400, success: false, message: context?.authError || "Authorization Error", data: [], lastPage: 0 };
-        }
+  _: any,
+  args: {
+    page?: number;
+    limit?: number;
+    filter?: {
+      memberRole?: string; // "MR" | "ABM"
+      memberId?: number;
+      workingAreaId?: number;
+      startDate?: string;
+      endDate?: string;
+    };
+  },
+  context: Context
+) => {
+  try {
+    if (!context || context.authError) {
+      return {
+        code: 400,
+        success: false,
+        message: context?.authError || "Authorization Error",
+        data: [],
+        lastPage: 0,
+      };
+    }
 
-        const role = context.user?.role;
-        const userId = context.user?.userId;
+    // ✅ resolve companyId (same pattern you used elsewhere)
+    const roleRaw = context.user?.role;
+    const role = roleRaw ? String(roleRaw).toUpperCase() : "";
+    const userId = context.user?.userId;
 
-        const page = args.page && args.page > 0 ? args.page : 1;
-        const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const companyId =
+      context.company?.id ||
+      (role === "COMPANY" ? userId : context.user?.companyId);
 
-        const where: any = {};
+    if (!companyId) {
+      return { code: 400, success: false, message: "Company authorization required", data: [], lastPage: 0 };
+    }
 
-        if (role === "ABM") where.abmId = userId;
-        else if (role === "MR") where.mrId = userId;
-        else return { code: 400, success: false, message: "Only ABM/MR can view visit plans", data: [], lastPage: 0 };
+    const isCompanyViewer = Boolean(context.company?.id) || role === "COMPANY";
 
-        if (typeof args.workingAreaId === "number") where.workingAreaId = args.workingAreaId;
-        if (args.date) where.date = toUtcMidnight(args.date);
+    const where: any = {
+      // ✅ company scoping without companyId column in VisitPlans:
+      OR: [
+        { abm: { is: { companyId } } },
+        { mr: { is: { companyId } } },
+      ],
+    };
 
-        const total = await prisma.visitPlans.count({ where });
-        const lastPage = Math.ceil(total / limit) || 1;
+    const filter = args.filter ?? {};
 
-        const data = await prisma.visitPlans.findMany({
-          where,
-          skip: (page - 1) * limit,
-          take: limit,
-          orderBy: [{ date: "desc" }, { id: "desc" }],
-          include: {
-            WorkingArea: true,
-            abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
-            mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
-          },
-        });
+    // ✅ viewer-based filtering
+    if (isCompanyViewer) {
+      const memberRole = filter.memberRole ? String(filter.memberRole).toUpperCase() : undefined;
+      const memberId = filter.memberId;
 
-        return { code: 200, success: true, message: "Visit plans fetched successfully", data, lastPage };
-      } catch (err: any) {
-        return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
+      if (memberRole && !memberId) {
+        return { code: 400, success: false, message: "memberId is required when memberRole is provided", data: [], lastPage: 0 };
       }
-    },
+
+      if (memberRole === "MR") where.mrId = memberId;
+      else if (memberRole === "ABM") where.abmId = memberId;
+      else if (memberRole) {
+        return { code: 400, success: false, message: "memberRole must be MR or ABM", data: [], lastPage: 0 };
+      }
+      // if no memberRole => company gets all (company-scoped) visit plans
+    } else {
+      // ✅ ABM/MR self view (keep existing behavior for non-company callers)
+      if (!userId) {
+        return { code: 400, success: false, message: "User authorization required", data: [], lastPage: 0 };
+      }
+
+      if (role === "ABM") where.abmId = userId;
+      else if (role === "MR") where.mrId = userId;
+      else {
+        return { code: 400, success: false, message: "Only ABM/MR/Company can view visit plans", data: [], lastPage: 0 };
+      }
+    }
+
+    // ✅ workingArea filter
+    if (typeof filter.workingAreaId === "number") {
+      where.workingAreaId = filter.workingAreaId;
+    }
+
+    // ✅ date filtering (window / single day)
+    const addDaysUtc = (d: Date, days: number) =>
+      new Date(d.getTime() + days * 24 * 60 * 60 * 1000);
+
+    const startDate = filter.startDate;
+    const endDate = filter.endDate;
+
+    if (startDate && endDate) {
+      const start = toUtcMidnight(startDate);
+      const endExclusive = addDaysUtc(toUtcMidnight(endDate), 1); // inclusive end date
+      where.date = { gte: start, lt: endExclusive };
+    } else if (startDate) {
+      const start = toUtcMidnight(startDate);
+      const endExclusive = addDaysUtc(start, 1); // that day only
+      where.date = { gte: start, lt: endExclusive };
+    }
+
+    const page = args.page && args.page > 0 ? args.page : 1;
+    const limit = args.limit && args.limit > 0 ? args.limit : 10;
+    const skip = (page - 1) * limit;
+
+    const total = await prisma.visitPlans.count({ where });
+    const lastPage = Math.ceil(total / limit) || 1;
+
+    const data = await prisma.visitPlans.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: [{ date: "desc" }, { id: "desc" }],
+      include: {
+        WorkingArea: true,
+        abm: { select: { id: true, name: true, phone: true, email: true, role: true } },
+        mr: { select: { id: true, name: true, phone: true, email: true, role: true } },
+      },
+    });
+
+    return { code: 200, success: true, message: "Visit plans fetched successfully", data, lastPage };
+  } catch (err: any) {
+    return { code: 500, success: false, message: err.message, data: [], lastPage: 0 };
+  }
+},
+
   },
 
   Mutation: {

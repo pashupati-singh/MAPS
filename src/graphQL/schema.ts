@@ -33,6 +33,8 @@ import { VisitPlansResolver } from './resolver/visitPlans.resolver';
 import { VisitPlanTypeDefs } from './typeDefs/visitPlans.typeDefs';
 import { NotificationTypeDefs } from './typeDefs/notification.typeDefs';
 import { NotificationResolver } from './resolver/notification.resolver';
+import { CompanyCalendarTypeDefs } from './typeDefs/CompanyCalendar.typeDefs';
+import { CompanyCalendarResolver } from './resolver/CompanyCalendar.resolver';
 
 
 export const typeDefs = mergeTypeDefs([
@@ -52,7 +54,8 @@ export const typeDefs = mergeTypeDefs([
     SaleTypeDefs,
     DateSummaryTypeDefs,
     VisitPlanTypeDefs,
-    NotificationTypeDefs
+    NotificationTypeDefs,
+    CompanyCalendarTypeDefs
 ]);
 
 export const resolvers = mergeResolvers([
@@ -72,6 +75,7 @@ export const resolvers = mergeResolvers([
     SaleResolvers,
     DateSummaryResolver,
     VisitPlansResolver,
-    NotificationResolver
+    NotificationResolver,
+    CompanyCalendarResolver
 
 ]);

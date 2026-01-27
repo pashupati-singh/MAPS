@@ -8,36 +8,38 @@ datasource db {
 }
 
 model Company {
-  id                      Int               @id @default(autoincrement())
+  id                      Int                @id @default(autoincrement())
   name                    String?
   legalName               String?
   size                    CompanySize?
   website                 String?
   logoUrl                 String?
-  status                  CompanyStatus     @default(ACTIVE)
-  email                   String            @unique
+  status                  CompanyStatus      @default(ACTIVE)
+  email                   String             @unique
   password                String
-  phone                   String            @unique
+  phone                   String             @unique
   address                 Json?
   contacts                Json?
   employees               Int?
-  gstNumber               String?           @unique
-  registrationNo          String?           @unique
-  isEmailVerified         Boolean           @default(false)
-  isPhoneVerified         Boolean           @default(false)
+  gstNumber               String?            @unique
+  registrationNo          String?            @unique
+  isEmailVerified         Boolean            @default(false)
+  isPhoneVerified         Boolean            @default(false)
   emailVerificationToken  String?
   emailVerificationExpiry DateTime?
   phoneOtp                String?
   otpExpiry               DateTime?
   subscriptionType        SubscriptionType?
   subscriptionStart       DateTime?
-  isSubscribe             Boolean?          @default(false)
+  isSubscribe             Boolean?           @default(false)
   subscriptionEnd         DateTime?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
   ChemistCompany          ChemistCompany[]
   chemistProduct          ChemistProduct[]
+  CompanyCalendar         CompanyCalendar[]
   dailyPlan               DailyPlan[]
+  DateWiseCalendar        DateWiseCalendar[]
   Default                 Default[]
   doctorChemists          DoctorChemist[]
   doctorCompany           DoctorCompany[]
@@ -627,6 +629,28 @@ model Notification {
   NotifyToUser    User?     @relation("Notification_userToNotifyToUser", fields: [userToNotify], references: [id], onUpdate: NoAction, map: "notification_user_to_notify_fkey")
 }
 
+model CompanyCalendar {
+  id               Int                @id(map: "companycalendar_pkey") @default(autoincrement())
+  companyId        Int?
+  month            month_enum?
+  totalWorkingDate Int?
+  totalOffDays     Int?
+  year             Int?
+  Company          Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "company_fk")
+  DateWiseCalendar DateWiseCalendar[]
+}
+
+model DateWiseCalendar {
+  id                Int              @id(map: "datewisecalendar_pkey") @default(autoincrement())
+  companyCalendarId Int?
+  companyId         Int?
+  date              DateTime?        @db.Date
+  type              day_type_enum?
+  reason            String?          @default("")
+  CompanyCalendar   CompanyCalendar? @relation(fields: [companyCalendarId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "datewisecalendar_companycalendarid_fkey")
+  Company           Company?         @relation(fields: [companyId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "datewisecalendar_companyid_fkey")
+}
+
 enum CompanySize {
   STARTUP
   SME
@@ -693,4 +717,24 @@ enum VisitPlanStatus {
   approved
   rejected
   completed
+}
+
+enum day_type_enum {
+  off
+  on
+}
+
+enum month_enum {
+  january
+  february
+  march
+  april
+  may
+  june
+  july
+  august
+  september
+  october
+  november
+  december
 }

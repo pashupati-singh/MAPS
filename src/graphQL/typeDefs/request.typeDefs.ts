@@ -19,6 +19,11 @@ export const RequestTypeDefs = `#graphql
     updatedAt: String
   }
 
+    input RequestsFilterInput {
+  memberRole: String # "MR" | "ABM"
+  memberId: Int
+}
+
   input CreateRequestInput {
     abmId: Int
     requestType: String!
@@ -66,7 +71,7 @@ export const RequestTypeDefs = `#graphql
   }
 
   extend type Query {
-    getRequests(page: Int, limit: Int): RequestsResponse!
+    getRequests(page: Int, limit: Int, filter: RequestsFilterInput): RequestsResponse!
   }
 
   extend type Mutation {
